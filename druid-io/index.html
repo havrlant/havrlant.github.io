@@ -1,0 +1,279 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="alternative" href="/atom.xml" title="Programio" type="application/atom+xml"><link rel="icon" href="/images/favicon.png"><title>Druid.io: distribuovaná immutable databáze pro analytické výpočty - Programio</title><link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro"><link rel="stylesheet" href="/css/main.css" type="text/css"><!--[if lt IE 9]><script>(function(a,b){a="abbr article aside audio bdi canvas data datalist details dialog figcaption figure footer header hgroup main mark meter nav output progress section summary template time video".split(" ");for(b=a.length-1;b>=0;b--)document.createElement(a[b])})()</script><![endif]--></head><body><header class="head"><h1 class="head-title u-fl"> <a href="/">Programio</a></h1><nav class="head-nav u-fr"><ul class="head-nav__list"><li class="head-nav__item"><a href="/" class="head-nav__link">Domů</a></li><li class="head-nav__item"><a href="/archives" class="head-nav__link">Archiv</a></li><li class="head-nav__item"><a href="http://www.havrlant.cz/" class="head-nav__link">O autorovi</a></li><li class="head-nav__item"><a href="/rss.xml" class="head-nav__link">RSS</a></li></ul></nav></header><main class="main"><article class="post"><header class="post__head"><time datetime="2015-04-27T16:42:56.000Z" class="post__time">27. 4. 2015</time><h1 class="post__title"><a href="/druid-io/">Druid.io: distribuovaná immutable databáze pro analytické výpočty</a></h1></header><div class="post__main echo"><p><a href="http://druid.io/" target="_blank" rel="external">Druid.io</a> používáme pro ukládání všech statistických a analytických dat. Je to vysoce škálovatelná distribuovaná immutable databáze, která obsahuje přímou podporu pro agregaci dat a pro aproximační algoritmy jako je <a href="/hyperloglog/">hyperloglog</a> nebo histogram.</p>
+<h2 id="dlouhá-cesta-k-druidu">Dlouhá cesta k Druidu</h2>
+<p>Než se dostaneme k Druidu, podíváme se na to, jak řešíme ukládání statistických dat teď, co jsme plánovali zkusit a proč jsme nakonec zvolili Druidíka. Vše si ukážeme na nejjednodušším příkladu ukládání impresí (tj. zobrazení reklamního banneru). Naše vstupní data vypadají nějak takto:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">datetime</th>
+<th align="left">campaignID</th>
+<th align="left">userId</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">2015-15-03 14:10:54</td>
+<td align="left">336</td>
+<td align="left">40BBF8</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+</tr>
+<tr class="even">
+<td align="left">2015-15-03 14:10:55</td>
+<td align="left">1344</td>
+<td align="left">9896AA</td>
+<td align="left">idnes.cz</td>
+<td align="left">Chrome</td>
+</tr>
+<tr class="odd">
+<td align="left">2015-15-03 14:11:01</td>
+<td align="left">1344</td>
+<td align="left">40BBF8</td>
+<td align="left">idnes.cz</td>
+<td align="left">Firefox</td>
+</tr>
+<tr class="even">
+<td align="left">2015-15-03 14:11:05</td>
+<td align="left">3738</td>
+<td align="left">43D03E</td>
+<td align="left">csfd.cz</td>
+<td align="left">Safari</td>
+</tr>
+<tr class="odd">
+<td align="left">2015-15-03 14:11:18</td>
+<td align="left">1344</td>
+<td align="left">9896AA</td>
+<td align="left">idnes.cz</td>
+<td align="left">Chrome</td>
+</tr>
+<tr class="even">
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+</tr>
+</tbody>
+</table>
+<p>Každý řádek reprezentuje jednu impresi. Z těchto surových dat chceme získávat tyto informace:</p>
+<ul>
+<li>Kolik impresí dosud udělala kampaň XYZ?</li>
+<li>Kolik unikátních zobrazení udělala kampaň XYZ za uplynulý týden?</li>
+<li>Kolik unikátních zobrazení udělaly všechny kampaně klienta ABC?</li>
+</ul>
+<p>…a mnoho dalších, toto jsou ty nejzákladnější dotazy. Hlavním problémem samozřejmě je, že těchto dat máme <em>hodně</em>, řekněme zhruba deset tisíc impresí za sekundu, což dělá necelou miliardu denně.</p>
+<h3 id="cesta-sql">Cesta SQL</h3>
+<p>V současné době máme data v SQL databázi, konkrétně <a href="https://www.infobright.com/" target="_blank" rel="external">InfoBright</a>. Běžné dotazy zvládá odpovídat rychle, nicméně pokud klient požádá o nějaký složitější report, ve kterém se musí hodně joinovat, může si na odpověď počkat i několik dlouhých desítek minut.</p>
+<p>Celkově vzato se SQL databáze blbě replikuje a blbě sharduje. Shardováním myslím to, že databáze běží na dvou serverech, v každé databázi je polovina dat a když vy položíte do databáze dotaz, automaticky se provede na obou serverech, obě databáze tento dotaz vyhodnotí a pak nějaký driver tyto dva dílčí výsledky spojí do jednoho. Zkrátka možnost databázi horizontálně škálovat. Proto zatím škálujeme jenom vertikálně.</p>
+<p>Jednou z hlavních nevýhod Infobright je navíc to, že je dost drahá.</p>
+<h3 id="cesta-nosql-a-předpočítávání-výsledků">Cesta NoSQL a předpočítávání výsledků</h3>
+<p>Když jsme tento problém začali řešit, rozhodli jsme se jako první zkusit data předpočítávat. Chtěli jsme vzít nějakou NoSQL Key-value databázi a ukládat do ní data typu:</p>
+<ul>
+<li>“14. 3. vidělo reklamu XYZ na ČSFD 35 952 lidí, z toho 9744 v Chrome, 4788 ve Firefoxu, 0 v Opeře, …”</li>
+<li>“15. 3. vidělo reklamu XYZ na ČSFD 28 434 lidí, z toho 4410 v Chrome, 2772 ve Firefoxu, 0 v Opeře, …”</li>
+<li>atd.</li>
+</ul>
+<p>Vytáhnout počet impresí pro daný den pro daný prohlížeč je pak otázkou vytáhnutí jednoho řádku z databáze. Jenomže tento způsob ukládání trpí několika problémy:</p>
+<ul>
+<li><p>Ve skutečnosti se <strong>nikdy nebude tahat pouze jeden řádek</strong>. Když budeme chtít znát statistiky za jeden týden, musíme vytáhnout sedm řádků a výsledky sečíst. Navíc chceme podporovat různá časová pásma, což znamená, že bychom předpočítaná data neměli ukládat pod denní granularitou, ale pod hodinovou granularitou. Ale to není velký problém.</p></li>
+<li><p>Imprese sice lze sčítat, ale <strong>počet unikátních uživatelů už se sčítat nedá</strong>. Pokud bychom v sobotu měli 1000 unikátů a v neděli 1500 unikátů, neznamená to, že za oba dny tam máme 2500 unikátů. Museli bychom proto předpočítávat počty unikátů pro každý možný časový interval (od 17. 3. do 23. 3 tam bylo 1500 unikátních uživatelů, od 17. 3. do 24. 3. 1750 unikátů atp.) nebo přinejmenším alespoň pro běžné intervaly jako je minulý týden, celý běh kampaně, posledních sedm dní apod. Předpočítávat pro všechny intervaly bude velice náročné, předpočítávat jen některé časy se chvíli zdálo jako docela přijatelné řešení.</p></li>
+<li><p><strong>S každou novou dimenzí exponenciálně roste počet klíčů, pro které musíme počítat výsledky</strong>. Pokud bychom zobrazovali reklamu na tisíci webech a ukládali si informaci o deseti prohlížečích, museli bychom si ukládat až 1000 · 10 = 10 000 záznamů za každou hodinu. Pokud bychom dále ukládali i tři hlavní operační systémy, dostaneme se až na 10 000 · 3 = 30 000 záznamů každou hodinu. A tak dále s každou novou dimenzí, podle které bychom chtěli filtrovat. To není dlouhodobě zvládnutelné.</p></li>
+</ul>
+<h2 id="dude-i-can-store-that-in-memory">Dude, I can store that in memory</h2>
+<p>Zajímavé je, že přesně touto cestou si prošli i <a href="http://druid.io/blog/2011/04/30/introducing-druid.html" target="_blank" rel="external">Metamarkeťáci</a>, autoři Druidu, a stejně jako my přišli na to, že ani SQL databáze, ani předpočítávání není ta správná cesta. Tehdy to dopadlo tak, že se nějaký Metamarkeťák podíval na data, která potřebovali prohledávat a pronesl památnou větu: “Dude, I can store that in memory”. Toho se chytli a vznikla první verze Druidu, distribuované databáze, která všechna data, nad kterými se volaly dotazy, držela v paměti. Byl to dobrý nápad? Ano, i ne.</p>
+<ul>
+<li>Protože jsou všechna data v paměti, jsou dotazy bleskurychlé.</li>
+<li>Protože je Druid distribuovaná databáze, nejste omezení velikostí RAMky na jednom počítači. “Přidat” paměť můžete tak, že přidáte nový server do clusteru. Potřebujete-li deset tera paměti, můžete vytvořit cluster ze sto počítačů, každý po sto GB paměti. Druid si s tím poradí.</li>
+</ul>
+<p>Otázkou zůstává, jestli se to vyplatí. Nebude to moc drahé? Naše současné denní statistiky mají v surové podobě přibližně 50 GB. Za rok by to dalo přibližně 18 TB. Pokud bychom toto množství paměti nakoupili jako <a href="http://aws.amazon.com/ec2/pricing/" target="_blank" rel="external">cloudovou službu u Amazonu</a>, stálo by nás to $210. Za hodinu. Za měsíc by to byly skoro čtyři miliony Kč. (75 instancí r3.8xlarge) No, není to úplně málo.</p>
+<h3 id="snižujeme-velikost-dat">Snižujeme velikost dat</h3>
+<p>Zkusíme snížit velikost dat.</p>
+<ol style="list-style-type: decimal">
+<li><p>V těch 50 GB jsou i data, která ve skutečnosti pro statistiky nepotřebujeme – odstraníme je.</p></li>
+<li><p>Můžeme nějak rozumně komprimovat data. Místo toho, abychom do databáze ukládali string “chrome”, tak tam uložíme nějakou číselnou konstantu, která tento prohlížeč reprezentuje.</p></li>
+<li><p>Blbá jsou IDéčka uživatelů. Pokud chceme spočítat počet unikátních uživatelů, kteří viděli nějakou reklamu, musíme u každé imprese uložit i to, jaký uživatel ji viděl, tj. nějaké jeho unikátní ID. Unikátní ID má ale tu blbou vlastnost, že se velmi špatně komprimuje, protože … no zkrátka protože jsou to příliš unikátní hodnoty. Jak se řeší problém si řekneme v příštím článku, pro teď předpokládejme, že sloupec s IDečky odstraníme.</p></li>
+</ol>
+<h3 id="agregujeme">Agregujeme</h3>
+<p>V tuto chvíli jsme docela slušně zredukovali velikost dat, ale stále ještě nejsme u konce. Můžeme totiž data dále agregovat. Stále máme pro každou impresi jeden řádek, ale to my ani tak moc nepotřebujeme. Potřebujeme vědět, kolik impresí se událo za danou hodinu. Můžeme vzít takovouto tabulku…</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">datetime</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">2015-15-03 10:52:54</td>
+<td align="left">1344</td>
+<td align="left">idnes.cz</td>
+<td align="left">safari</td>
+</tr>
+<tr class="even">
+<td align="left">2015-15-03 10:52:58</td>
+<td align="left">1344</td>
+<td align="left">idnes.cz</td>
+<td align="left">safari</td>
+</tr>
+<tr class="odd">
+<td align="left">2015-15-03 10:53:14</td>
+<td align="left">3738</td>
+<td align="left">csfd.cz</td>
+<td align="left">chrome</td>
+</tr>
+<tr class="even">
+<td align="left">2015-15-03 10:53:15</td>
+<td align="left">1344</td>
+<td align="left">idnes.cz</td>
+<td align="left">safari</td>
+</tr>
+<tr class="odd">
+<td align="left">2015-15-03 10:53:24</td>
+<td align="left">1344</td>
+<td align="left">idnes.cz</td>
+<td align="left">chrome</td>
+</tr>
+<tr class="even">
+<td align="left">2015-15-03 10:53:25</td>
+<td align="left">1344</td>
+<td align="left">csfd.cz</td>
+<td align="left">chrome</td>
+</tr>
+<tr class="odd">
+<td align="left">2015-15-03 10:53:29</td>
+<td align="left">3738</td>
+<td align="left">csfd.cz</td>
+<td align="left">chrome</td>
+</tr>
+<tr class="even">
+<td align="left">2015-15-03 10:53:32</td>
+<td align="left">3738</td>
+<td align="left">csfd.cz</td>
+<td align="left">chrome</td>
+</tr>
+<tr class="odd">
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+</tr>
+<tr class="even">
+<td align="left">2015-15-03 11:02:38</td>
+<td align="left">1344</td>
+<td align="left">csfd.cz</td>
+<td align="left">safari</td>
+</tr>
+<tr class="odd">
+<td align="left">2015-15-03 11:02:43</td>
+<td align="left">1344</td>
+<td align="left">csfd.cz</td>
+<td align="left">safari</td>
+</tr>
+</tbody>
+</table>
+<p>…a můžeme ji agregovat na takovouto tabulku:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">datetime</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+<th align="left">impressions</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">2015-15-03 10:00:00</td>
+<td align="left">1344</td>
+<td align="left">idnes.cz</td>
+<td align="left">safari</td>
+<td align="left">3</td>
+</tr>
+<tr class="even">
+<td align="left">2015-15-03 10:00:00</td>
+<td align="left">1344</td>
+<td align="left">idnes.cz</td>
+<td align="left">chrome</td>
+<td align="left">1</td>
+</tr>
+<tr class="odd">
+<td align="left">2015-15-03 10:00:00</td>
+<td align="left">1344</td>
+<td align="left">csfd.cz</td>
+<td align="left">chrome</td>
+<td align="left">1</td>
+</tr>
+<tr class="even">
+<td align="left">2015-15-03 10:00:00</td>
+<td align="left">3738</td>
+<td align="left">csfd.cz</td>
+<td align="left">chrome</td>
+<td align="left">3</td>
+</tr>
+<tr class="odd">
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+</tr>
+<tr class="even">
+<td align="left">2015-15-03 11:00:00</td>
+<td align="left">1344</td>
+<td align="left">csfd.cz</td>
+<td align="left">safari</td>
+<td align="left">2</td>
+</tr>
+</tbody>
+</table>
+<p>V první tabulce máme co jedno zobrazení reklamy, to jeden řádek. Ve druhé tabulce už jsme si spočítali, že na iDnes.cz byly v Safari v dané hodině a pro danou kampaň tři imprese. Druhá tabulka obsahuje stejně informací jako ta první, s výjimkou časového razítka. Z druhé tabulky už nevyčteme, kolik impresí bylo mezi 10:52:00 a 10:53:00. Ale to nás už moc nezajímá, hodinová granularita nám stačí.</p>
+<p>Jak moc se dále data agregují záleží na počtu dimenzí, na jejich kardinalitě, tj. kolik různých hodnot v sloupci máme a na časové granularity – agregace bude větší, když se bude agregovat po dnech než po hodinách. Tato agregace může snížit velikost dat klidně <em>na</em> deset procent, ale také může snížit velikost jen <em>o</em> deset procent; záleží na datech.</p>
+<p>A jak jsme si pomohli? Se všemi kompresemi a agregacemi bychom se mohli dostat na řádově nižší velikost dat. Pokud bychom předpokládali, že bychom dokázali data takto zredukovat z 50 GB na 2,5 GB, stál by nás cluster na Amazonu dvacetkrát méně, což znamená 200 000 Kč za měsíc. Ne že by to bylo málo, ale už se o tom dá uvažovat.</p>
+<h2 id="dámy-a-pánové-druid.io">Dámy a pánové, Druid.io</h2>
+<p>Dobře, už jsme si spočítali, že bychom možná dokázali všechna data vměstnat do paměti a že by to nemuselo být úplně drahé. Co nám tedy <a href="http://druid.io/" target="_blank" rel="external">Druid</a> nabízí, že jsme nakonec skončili u něj?</p>
+<p>Druid je distribuovaná databáze napsaná v Javě vhodná pro statistická a analytická data. Není například vhodná pro ukládání textů, takže redakční systém iDnes.cz bych na něm nestavěl. Jaké jsou klíčové vlastnosti?</p>
+<ul>
+<li><p>Zvládá běžné databázové operace jako jsou filtry nebo grupování; nezvládá join – proto jsou typicky data uložená denormalizovaně. Nad sloupcem umí spočítat počet unikátních hodnot, průměr, medián, jiný percentil, rozložení hodnot. Obecně dokáže nad sloupcem udržovat aproximaci histogramu a z něj spočítat hromadu zajímavých údajů. <strong>Všechno z toho dělá Druid distribuovaně na několika různých serverech.</strong></p></li>
+<li><p><strong>Je škálovatelný.</strong> Každá složka Druidu je škálovatelná, pokud už současná velikost clusteru nezvládá zpracovávat dotazy nad daty, snadno lze přidat další stroje, které si k sobě stáhnou část dat a přeberou tak i část dotazů. Každý dotaz se typicky vyhodnocuje na několika Druidích serverech současně. Můžete si to představit tak, že máme například 12 Druidích serverů, na každém jsou data za jeden měsíc roku a dotaz na statistická data za uplynulý půl rok by se paralelně vykonával na šesti serverech.</p></li>
+<li><p><strong>Každou část lze replikovat.</strong> Stejně jako třeba u <a href="/kafka">Kafky</a> lze i Druidu jednoduše nastavit replikační faktor. Nastavíme-li ho na dva, budou všechna data uložena na dvou odlišných strojích. Pokud jeden ze serverů vypadne, dotazy se přesměrují na druhý stroj.</p></li>
+<li><p><strong>Je realtime.</strong> Druid zvládá indexovat desetitisíce nově příchozích zpráv za sekundu a tyto události dává okamžitě k dispozici pro dotazování.</p></li>
+<li><p><strong>Všechna data jsou immutable.</strong> Druid v podstatě zvládá pouze <code>append</code> dat. Neumí žádný <code>update</code>. Každá zpráva, kterou appendujeme, musí mít časové razítko, aby šlo určit, do kterého časového intervalu patří. Do Druidu proto patří <em>události</em>, tj. data, která nastala v nějaký okamžik a tato data jsou na vždy platná. Ve chvíli, kdy Druid zpracuje <em>včerejší</em> data, se už tato data nemůžou nijak změnit. Potřebujete-li změnit stará data, není jiné cesty než stará data smazat a vše znova přepočítat (což se běžně dělá).</p></li>
+</ul>
+<p>To jsou asi věci, které jsme všichni čekali, když se náš seriál zabývá budováním statistik se zaměřením na škálovatelnost, odolnost vůči výpadkům a na nízkou latenci. Co dále Druid umí? Všecho, o čem jsme se bavili v předchozí kapitole:</p>
+<ul>
+<li><p><strong>Druid používá různé kompresní mechanismy pro zmenšení velikost dat, která do něj vkládáme.</strong> Například i slovníky, takže můžeme do Druidu valit data jako je “chrome” a Druid se už sám postará o to, aby se daného sloupce uložila nějaká číselná konstanta.</p></li>
+<li><p><strong>Druid zvládá agregovat data postupem, který jsme si ukázali výše.</strong> Stačí mu nastavit, které sloupce má jak agregovat a nastavit časovou granularitu. Pokud Druid najde v dané hodině dva stejné řádky, spojí je do jednoho a uloží k němu informaci o tom, že tento řádek reprezentuje dvě imprese. O agregaci budeme více mluvit příště.</p></li>
+<li><p><strong>Druid má přímou podporu pro <a href="/hyperloglog/">HyperLogLog</a></strong>, díky čemu se můžeme efektivně zbavit sloupce s IDečkami uživatelů. Díky Druidovi jsme schopni velmi přesně odhadnout počet unikátních uživatelů, kterým se zobrazila nějaká reklama bez toho, aniž bychom fakticky měli uloženo, komu se jaká reklama zobrazila. Díky <a href="/sjednoceni-hyperloglogu/">sjednocení HyperLogLogu</a> bude fungovat i agregace.</p></li>
+<li><p><strong>Druid je schopný udržovat již zmiňovanou <a href="http://en.wikipedia.org/wiki/Histogram" target="_blank" rel="external">aproximaci histogramu</a> pro daný sloupec</strong>.</p></li>
+</ul>
+<h2 id="dobře-je-to-všechno-hezké-ale-fakt-musí-být-vše-v-paměti">Dobře, je to všechno hezké, ale … fakt musí být vše v paměti?</h2>
+<p>Nemusí! I kluci z Metamarkets si asi časem uvědomili tři věci:</p>
+<ul>
+<li>Když už spotřebovaná paměť leze do jednotek TB, tak už tak moc levná není.</li>
+<li>SSD vlastně nejsou tak úplně pomalé.</li>
+<li>Opravdu je nutné držet v paměti tři roky stará data jenom proto, abychom je byli schopni dotázat jednou za uherský rok?</li>
+</ul>
+<p><strong>Současná verze Druidu proto umožňuje dotazovat i ta data, která jsou uložená na disku a nejsou přímo načtená v paměti.</strong> Je to samozřejmě pomalejší, ale pořád je to dostatečně rychlé. Zároveň umožňuje definovat pravidla, kam se mají jaká data ukládat. Takže můžeme vytvořit pravidla, že data za poslední tři měsíce budou na nejrychlejších strojích s hromadou paměti, zatímco starší data budou na horších strojích s méně paměti. Idea je, že v 90 % případů stejně taháme <em>nová</em> data, ne data několika let stará.</p>
+<p>Není to nijak zvlášť nový přístup, takový <a href="https://blog.twitter.com/2014/building-a-complete-tweet-index" target="_blank" rel="external">Twitter používá něco velmi podobného</a>. Aktuální tweety udržuje v paměti, zatímco staré tweety má uložené na SSD (a ještě k tomu trošku vyladili kernel, ale kdo z nás to občas nedělá, že?).</p>
+<h2 id="příště">Příště…</h2>
+<p>Příště se podíváme na architekturu Druidu.</p>
+<div class="relatedBox"><div class="relatedArticlesBox"><h2 id="relatedArticles">Související články:</h2><ol><li><a href="/lambda-architecture/">Jak zpracováváme velké množství dat: Lambda Architecture</a></li><li><a href="/kafka/">Kafka messaging system</a></li><li><a href="/kafka-consumer/">Jak funguje Kafka consumer</a></li><li><a href="/kafka-replikace/">Jak funguje replikace v Kafce</a></li><li><a href="/samza/">Samza: distributed stream processing framework</a></li><li><a href="/samza-windowing/">Windowing v Samze</a></li><li><a href="/samza-local-state/">Uložení lokálního stavu v Samze</a></li><li><a href="/druid-io-architektura/">Architektura Druid.io</a></li><li><a href="/druid-io-ingest/">Jak Druid.io agreguje data</a></li></ol></div></div><div class="articleTags"><strong><a href="/tags/bigdata">#bigdata</a></strong>, <strong><a href="/tags/druid">#druid</a></strong></div></div></article><div style="text-align: right"><div class="fb-like" data-layout="button_count" data-action="like" data-show-faces="true" data-share="true" style="margin-top: 10px; height: 30px"></div></div><div class="comments"><div id="disqus_thread"><noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div></div><footer class="post__foot u-cf"><ul class="post__tag u-fl"><li class="post__tag__item"><a href="/tags/bigdata/" class="post__tag__link">bigdata</a></li><li class="post__tag__item"><a href="/tags/druid/" class="post__tag__link">druid</a></li></ul><a href="/druid-io/#disqus_thread" class="post__foot-link u-fr">Komentáře</a></footer></main><footer class="foot"><div class="foot-copy u-fl"><a href="/">Programio</a> píše <a href="http://www.havrlant.cz/">Lukáš Havrlant</a></div><menu class="page-menu u-fr"><li class="page-menu__item"><a title="Previous" href="/druid-io-architektura/" class="page-menu__link icon-arrow-left"></a></li><li class="page-menu__item"><a title="Next" href="/samza-local-state/" class="page-menu__link icon-arrow-right"></a></li></menu></footer><script>(function(h,g,l,k,j,i){j=h.createElement(g),i=h.getElementsByTagName(g)[0],
+j.src="//"+l+".disqus.com/"+k+".js",i.parentNode.insertBefore(j,i)})
+(document,"script","programio","embed");
+</script><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=
+function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;
+e=o.createElement(i);r=o.getElementsByTagName(i)[0];
+e.src='//www.google-analytics.com/analytics.js';
+r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));
+ga('create','UA-1559810-13');ga('send','pageview');
+</script><div id="fb-root"></div><script>(function(d, s, id) {
+var js, fjs = d.getElementsByTagName(s)[0];
+if (d.getElementById(id)) return;
+js = d.createElement(s); js.id = id;
+js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&appId=166268190106534&version=v2.0";
+fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script></body></html>

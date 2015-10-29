@@ -1,0 +1,201 @@
+<ns0:svg xmlns:html="http://www.w3.org/1999/xhtml" xmlns:ns0="http://www.w3.org/2000/svg" height="413px" version="1.1" width="673px">
+	<ns0:defs />
+	<ns0:g transform="translate(0.5,0.5)">
+		<ns0:rect fill="#ffffff" height="60" pointer-events="none" stroke="#000000" width="120" x="1" y="171" />
+		<ns0:g transform="translate(38,194)">
+			<ns0:switch>
+				<ns0:foreignObject height="17" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="45">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.26; vertical-align: top; width: 45px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">&#268;SFD</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#000000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="23" y="15">&#268;SFD</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:rect fill="#ffffff" height="60" pointer-events="none" stroke="#000000" width="120" x="291" y="171" />
+		<ns0:g transform="translate(295,194)">
+			<ns0:switch>
+				<ns0:foreignObject height="17" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="112">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.26; vertical-align: top; width: 112px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">Internet BillBoard</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#000000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="56" y="15">Internet BillBoard</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:rect fill="#ffffff" height="60" pointer-events="none" stroke="#000000" width="120" x="291" y="1" />
+		<ns0:g transform="translate(327,24)">
+			<ns0:switch>
+				<ns0:foreignObject height="17" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="47">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.26; vertical-align: top; width: 47px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">DSP 1</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#000000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="24" y="15">DSP 1</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:rect fill="#ffffff" height="60" pointer-events="none" stroke="#000000" width="120" x="551" y="81" />
+		<ns0:g transform="translate(587,104)">
+			<ns0:switch>
+				<ns0:foreignObject height="17" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="47">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.26; vertical-align: top; width: 47px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">DSP 2</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#000000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="24" y="15">DSP 2</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:rect fill="#ffffff" height="60" pointer-events="none" stroke="#000000" width="120" x="291" y="351" />
+		<ns0:g transform="translate(327,374)">
+			<ns0:switch>
+				<ns0:foreignObject height="17" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="47">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.26; vertical-align: top; width: 47px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">DSP 4</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#000000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="24" y="15">DSP 4</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:rect fill="#ffffff" height="60" pointer-events="none" stroke="#000000" width="120" x="551" y="271" />
+		<ns0:g transform="translate(587,294)">
+			<ns0:switch>
+				<ns0:foreignObject height="17" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="47">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.26; vertical-align: top; width: 47px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">DSP 3</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#000000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="24" y="15">DSP 3</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:path d="M 121 186 L 284.63 186" fill="none" pointer-events="none" stroke="#000000" stroke-miterlimit="10" />
+		<ns0:path d="M 289.88 186 L 282.88 189.5 L 284.63 186 L 282.88 182.5 Z" fill="#000000" pointer-events="none" stroke="#000000" stroke-miterlimit="10" />
+		<ns0:rect fill="none" height="20" pointer-events="none" stroke="none" width="150" x="131" y="161" />
+		<ns0:g transform="translate(158,165)">
+			<ns0:switch>
+				<ns0:foreignObject height="16" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="97">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.26; vertical-align: top; overflow: hidden; max-height: 16px; max-width: 146px; width: 97px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">Po&#353;li mi reklamu</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#000000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="49" y="14">Po&#353;li mi reklamu</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:path d="M 321 171 L 321 67.37" fill="none" pointer-events="none" stroke="#ff0000" stroke-miterlimit="10" />
+		<ns0:path d="M 321 62.12 L 324.5 69.12 L 321 67.37 L 317.5 69.12 Z" fill="#ff0000" pointer-events="none" stroke="#ff0000" stroke-miterlimit="10" />
+		<ns0:path d="M 411 186 L 545.64 99.44" fill="none" pointer-events="none" stroke="#ff0000" stroke-miterlimit="10" />
+		<ns0:path d="M 550.06 96.6 L 546.06 103.33 L 545.64 99.44 L 542.28 97.45 Z" fill="#ff0000" pointer-events="none" stroke="#ff0000" stroke-miterlimit="10" />
+		<ns0:path d="M 411 201 L 545.64 287.56" fill="none" pointer-events="none" stroke="#ff0000" stroke-miterlimit="10" />
+		<ns0:path d="M 550.06 290.4 L 542.28 289.55 L 545.64 287.56 L 546.06 283.67 Z" fill="#ff0000" pointer-events="none" stroke="#ff0000" stroke-miterlimit="10" />
+		<ns0:path d="M 321 231 L 321 344.63" fill="none" pointer-events="none" stroke="#ff0000" stroke-miterlimit="10" />
+		<ns0:path d="M 321 349.88 L 317.5 342.88 L 321 344.63 L 324.5 342.88 Z" fill="#ff0000" pointer-events="none" stroke="#ff0000" stroke-miterlimit="10" />
+		<ns0:rect fill="none" height="20" pointer-events="none" stroke="none" transform="rotate(-90,301,121)" width="80" x="261" y="111" />
+		<ns0:g transform="translate(277,115)rotate(-90,24.5,6)">
+			<ns0:switch>
+				<ns0:foreignObject height="16" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="49">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(255, 0, 0); line-height: 1.26; vertical-align: top; overflow: hidden; max-height: 16px; max-width: 76px; width: 49px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">Nab&#237;dka</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#FF0000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="25" y="14">Nab&#237;dka</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:rect fill="none" height="20" pointer-events="none" stroke="none" transform="rotate(-33,461,141)" width="80" x="421" y="131" />
+		<ns0:g transform="translate(437,135)rotate(-33,24.5,6)">
+			<ns0:switch>
+				<ns0:foreignObject height="16" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="49">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(255, 0, 0); line-height: 1.26; vertical-align: top; overflow: hidden; max-height: 16px; max-width: 76px; width: 49px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">Nab&#237;dka</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#FF0000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="25" y="14">Nab&#237;dka</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:rect fill="none" height="20" pointer-events="none" stroke="none" transform="rotate(35,491,241)" width="80" x="451" y="231" />
+		<ns0:g transform="translate(467,235)rotate(35,24.5,6)">
+			<ns0:switch>
+				<ns0:foreignObject height="16" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="49">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(255, 0, 0); line-height: 1.26; vertical-align: top; overflow: hidden; max-height: 16px; max-width: 76px; width: 49px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">Nab&#237;dka</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#FF0000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="25" y="14">Nab&#237;dka</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:path d="M 381 61 L 381 164.63" fill="none" pointer-events="none" stroke="#0000ff" stroke-miterlimit="10" />
+		<ns0:path d="M 381 169.88 L 377.5 162.88 L 381 164.63 L 384.5 162.88 Z" fill="#0000ff" pointer-events="none" stroke="#0000ff" stroke-miterlimit="10" />
+		<ns0:path d="M 391 351 L 391 237.37" fill="none" pointer-events="none" stroke="#0000ff" stroke-miterlimit="10" />
+		<ns0:path d="M 391 232.12 L 394.5 239.12 L 391 237.37 L 387.5 239.12 Z" fill="#0000ff" pointer-events="none" stroke="#0000ff" stroke-miterlimit="10" />
+		<ns0:path d="M 551 111 L 416.36 197.56" fill="none" pointer-events="none" stroke="#0000ff" stroke-miterlimit="10" />
+		<ns0:path d="M 411.94 200.4 L 415.94 193.67 L 416.36 197.56 L 419.72 199.55 Z" fill="#0000ff" pointer-events="none" stroke="#0000ff" stroke-miterlimit="10" />
+		<ns0:path d="M 551 311 L 416.27 219.58" fill="none" pointer-events="none" stroke="#0000ff" stroke-miterlimit="10" />
+		<ns0:path d="M 411.93 216.63 L 419.68 217.66 L 416.27 219.58 L 415.75 223.45 Z" fill="#0000ff" pointer-events="none" stroke="#0000ff" stroke-miterlimit="10" />
+		<ns0:rect fill="none" height="20" pointer-events="none" stroke="none" transform="rotate(-90,396,111)" width="90" x="351" y="101" />
+		<ns0:g transform="translate(373,105)rotate(-90,23,6)">
+			<ns0:switch>
+				<ns0:foreignObject height="16" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="46">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 255); line-height: 1.26; vertical-align: top; overflow: hidden; max-height: 16px; max-width: 86px; width: 46px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">Nechci!</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#0000FF" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="23" y="14">Nechci!</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:rect fill="none" height="20" pointer-events="none" stroke="none" transform="rotate(-90,301,291)" width="80" x="261" y="281" />
+		<ns0:g transform="translate(277,285)rotate(-90,24.5,6)">
+			<ns0:switch>
+				<ns0:foreignObject height="16" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="49">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(255, 0, 0); line-height: 1.26; vertical-align: top; overflow: hidden; max-height: 16px; max-width: 76px; width: 49px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">Nab&#237;dka</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#FF0000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="25" y="14">Nab&#237;dka</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:rect fill="none" height="20" pointer-events="none" stroke="none" transform="rotate(-90,406,291)" width="90" x="361" y="281" />
+		<ns0:g transform="translate(368,285)rotate(-90,38.5,6)">
+			<ns0:switch>
+				<ns0:foreignObject height="16" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="77">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 255); line-height: 1.26; vertical-align: top; overflow: hidden; max-height: 16px; max-width: 86px; width: 77px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">Nab&#237;z&#237;m 8 K&#269;</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#0000FF" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="39" y="14">Nab&#237;z&#237;m 8 K&#269;</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:rect fill="none" height="20" pointer-events="none" stroke="none" transform="rotate(-35,486,171)" width="90" x="441" y="161" />
+		<ns0:g transform="translate(448,165)rotate(-35,38.5,6)">
+			<ns0:switch>
+				<ns0:foreignObject height="16" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="77">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 255); line-height: 1.26; vertical-align: top; overflow: hidden; max-height: 16px; max-width: 86px; width: 77px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">Nab&#237;z&#237;m 6 K&#269;</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#0000FF" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="39" y="14">Nab&#237;z&#237;m 6 K&#269;</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:rect fill="none" height="20" pointer-events="none" stroke="none" transform="rotate(35,466,271)" width="90" x="421" y="261" />
+		<ns0:g transform="translate(443,265)rotate(35,23,6)">
+			<ns0:switch>
+				<ns0:foreignObject height="16" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="46">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 255); line-height: 1.26; vertical-align: top; overflow: hidden; max-height: 16px; max-width: 86px; width: 46px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">Nechci!</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#0000FF" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="23" y="14">Nechci!</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+		<ns0:path d="M 291 216 L 127.37 216" fill="none" pointer-events="none" stroke="#000000" stroke-miterlimit="10" />
+		<ns0:path d="M 122.12 216 L 129.12 212.5 L 127.37 216 L 129.12 219.5 Z" fill="#000000" pointer-events="none" stroke="#000000" stroke-miterlimit="10" />
+		<ns0:rect fill="none" height="20" pointer-events="none" stroke="none" width="150" x="131" y="221" />
+		<ns0:g transform="translate(152,225)">
+			<ns0:switch>
+				<ns0:foreignObject height="16" pointer-events="all" requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="108">
+					<html:div style="display: inline-block; font-size: 12px; font-family: Helvetica; color: rgb(0, 0, 0); line-height: 1.26; vertical-align: top; overflow: hidden; max-height: 16px; max-width: 146px; width: 108px; white-space: normal; font-weight: bold; text-align: center;">
+						<html:div style="display:inline-block;text-align:inherit;text-decoration:inherit;">Tady m&#225;&#353; reklamu</html:div>
+					</html:div>
+				</ns0:foreignObject>
+				<ns0:text fill="#000000" font-family="Helvetica" font-size="12px" font-weight="bold" text-anchor="middle" x="54" y="14">Tady m&#225;&#353; reklamu</ns0:text>
+			</ns0:switch>
+		</ns0:g>
+	</ns0:g>
+</ns0:svg>

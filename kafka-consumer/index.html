@@ -1,0 +1,133 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="alternative" href="/atom.xml" title="Programio" type="application/atom+xml"><link rel="icon" href="/images/favicon.png"><title>Jak funguje Kafka consumer - Programio</title><link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro"><link rel="stylesheet" href="/css/main.css" type="text/css"><!--[if lt IE 9]><script>(function(a,b){a="abbr article aside audio bdi canvas data datalist details dialog figcaption figure footer header hgroup main mark meter nav output progress section summary template time video".split(" ");for(b=a.length-1;b>=0;b--)document.createElement(a[b])})()</script><![endif]--></head><body><header class="head"><h1 class="head-title u-fl"> <a href="/">Programio</a></h1><nav class="head-nav u-fr"><ul class="head-nav__list"><li class="head-nav__item"><a href="/" class="head-nav__link">Domů</a></li><li class="head-nav__item"><a href="/archives" class="head-nav__link">Archiv</a></li><li class="head-nav__item"><a href="http://www.havrlant.cz/" class="head-nav__link">O autorovi</a></li><li class="head-nav__item"><a href="/rss.xml" class="head-nav__link">RSS</a></li></ul></nav></header><main class="main"><article class="post"><header class="post__head"><time datetime="2015-03-23T17:22:31.000Z" class="post__time">23. 3. 2015</time><h1 class="post__title"><a href="/kafka-consumer/">Jak funguje Kafka consumer</a></h1></header><div class="post__main echo"><p>Kafka je napsaná ve Scale a poskytuje nějaké normální třídy pro práci v Javě. Máme na výběr ze dvou druhů implementací lišících se mírou abstrakce: high level Kafka consumer a low level. My téměř všude používáme high level consumera a o něm bude celý tento článek. Existují implementace i v jiných jazycích, které mohou poskytovat ještě jiné úrovně abstrakce, než jaké poskytuje původní Scala implementace, těmi se nebudu zabývat vůbec. Obecně je nejlepší používat nativní Javové knihovny přímo od LinkedInu, tam máte největší jistotu, že bude vše fungovat jak má. Implementace v ostatních jazycích už LinkedIn na svědomí nemá.</p>
+<h2 id="zookeeper">ZooKeeper</h2>
+<p>Kafka interně používá <a href="http://zookeeper.apache.org/" target="_blank" rel="external">ZooKeeper</a>. ZooKeeper je hodně jednoduše řečeno distribuovaná replikovaná databáze, kterou můžeme použít na ukládání konfiguračních souborů, ale také na takové věci jako je volba lídra v distribuované síti. V tuto chvíli není důležité vědět o ZooKeeperu nic víc než to, že Kafka do něj ukládá všechna metadata o brokerech, topicích a partitonech.</p>
+<h2 id="ukládání-offsetu-naposledy-přečtené-zprávy">Ukládání offsetu naposledy přečtené zprávy</h2>
+<p>Consumer je obecně nějaká aplikace, která se umí napojit na Kafka broker a číst z něj zprávy z nějakého topicu.</p>
+<p>Všechny consumery pojí jeden problém: jak si pamatovat, které zprávy už byly zpracovány a které ne. Představme si, že náš topic <em>bidrequests</em> má jednu partition a že máme jednoho consumera, který přečetl a zpracoval 47 zpráv, když program náhle spadnul a znovu se nastartoval. Jak se consumer doví, že má začít číst od 48. zprávy?</p>
+<p>Musíme si někam ukládat offset naposledy přečtené zprávy. Otázkou je kam.</p>
+<ul>
+<li>Samozřejmě nemůže být v paměti, kterou po pádu aplikace ztratíme.</li>
+<li>Můžeme ho ukládat do souboru nebo do nějaké lokální databáze typu Redis. To má zásadní nevýhodu v tom, že consumera musíme následně spustit na stejném stroji. Pokud bychom ho chtěli pustit na úplně jiném serveru, neměli bychom tato data k dispozici. Pokud by nastala chyba disku, na kterém je soubor uložený, máme opět problém.</li>
+<li>Můžeme ho ukládat do vzdálené databáze. Ne náhodou jsme zmiňovali ZooKeeper, takže můžeme pro uložení offsetu použít právě ZooKeeper, který běží na nějakém vlastním stroji. Consumera můžeme pustit na jakémkoliv stroji, který má do ZooKeepera přístup, a ten si po startu může vytáhnout offset naposledy přečtené zprávy.</li>
+</ul>
+<p>Jenomže to jsme se dostali z deště pod okap. Posílat s každou přečtenou zprávou požadavek do ZooKeeperu je velmi náročné – jak pro ZooKeeper, který musí obvykle ještě všechna data udržovat synchronizovaná na nejméně třech serverech – tak pro samotný consumer. A jako bonus to ani zcela neřeší náš problém.</p>
+<h3 id="at-most-once-delivery">At most once delivery</h3>
+<p>Představme si, že náš consumer dělá to, že přečte zprávu z topicu a zapíše ji do databáze, nic víc. Pokud by consumer po přečtení zprávy uložil do ZooKeeperu offset této zprávy, dělo by se při pádu aplikace toto:</p>
+<ol style="list-style-type: decimal">
+<li>Consumer přečte z topicu zprávu #47.</li>
+<li>Consumer uloží do ZooKeeperu informaci o tom, že přečetl zprávu #47.</li>
+<li>Consumer pošle zprávu do databáze.</li>
+<li>Consumer kvůli nějaké chybě spadne; my ho po chvíli znovu spustíme.</li>
+<li>Consumer se podívá do ZooKeeperu a vidí, že naposledy přečetl zprávu #47.</li>
+<li>Consumer zažádá o zprávu #48.</li>
+</ol>
+<p>Potud vše v pořádku. Jenomže co by se stalo, kdyby consumer spadl o kousek dřív – těsně předtím, než by odeslal zprávu do databáze:</p>
+<ol style="list-style-type: decimal">
+<li>Consumer přečte zprávu #47 z topicu.</li>
+<li>Consumer informuje ZooKeeper, že přečetl zprávu #47.</li>
+<li>Consumer spadne; znovu ho spustíme.</li>
+<li>Consumer se podívá do ZooKeeperu a vidí, že naposledy přečetl zprávu #47.</li>
+<li>Consumer zažádá o zprávu #48.</li>
+</ol>
+<p>…přitom zprávu #47 v databázi uloženou nemáme, přišli jsme o ni. Takovému způsobu zpracování zpráv říkáme <em>at most once</em>, tedy že každou zprávu zpracujeme maximálně jednou, ale může se stát, že nám nějaké zprávy po pádu aplikace utečou.</p>
+<h3 id="at-least-once-delivery">At least once delivery</h3>
+<p>Dobře, můžeme změnit strategii ukládání do ZooKeeperu tak, že budeme offset ukládat až když nám databáze potvrdí, že uložení proběhlo korektně. Tj. takto:</p>
+<ol style="list-style-type: decimal">
+<li>Consumer přečte z topicu zprávu #47.</li>
+<li>Consumer vloží zprávu do databáze.</li>
+<li>Consumer čeká na potvrzení zápisu z databáze…</li>
+<li>…které právě přišlo.</li>
+<li>Consumer informuje ZooKeeper, že zpracoval zprávu #47.</li>
+<li>Consumer spadne; znovu ho pustíme.</li>
+<li>Consumer se podívá do ZooKeeperu a vidí, že naposledy zpracoval zprávu #47.</li>
+<li>Consumer zažádá o zprávu #48.</li>
+</ol>
+<p>Potud opět vše v pořádku. Samozřejmě i v tomto případě může pád aplikace nastat v blbější chvíli a pak nastane problém:</p>
+<ol style="list-style-type: decimal">
+<li>Consumer přečte zprávu #47 z topicu.</li>
+<li>Consumer vloží zprávu do databáze.</li>
+<li>Consumer čeká na potvrzení zápisu z databáze…</li>
+<li>…ale mezitím spadne; znovu ho pustíme.</li>
+<li>Consumer se podívá do ZooKeeperu a vidí, že naposledy zpracoval zprávu #46.</li>
+<li>Consumer zažádá o zprávu #47.</li>
+</ol>
+<p>Protože si consumer nestihl uložit, že zprávu #47 už zpracoval, zpracuje ji znova. Zprávu #47 tak zpracoval dvakrát a pokud nedošlo během ukládání do databáze k chybě, budemem tam mít zprávu uloženou dvakrát. Takovému způsobu zpracovávání říkáme <em>at least once</em>.</p>
+<h3 id="exactly-once">Exactly once</h3>
+<p>Ale my samozřejmě chceme, abychom každou zprávu přečetli <em>právě jednou</em>. Jak to zařídit? No… těžko. Dost těžko.</p>
+<p>Pokud je exactly once něco, co je opravdu potřeba, nezbývá, než nějak kooperovat s databází, kam se data ukládají. Například místo toho, abychom ukládali do databáze pouze samotnou zprávu, uložíme tam atomicky jak zprávu, tak offset zprávy, kterou zpracováváme. Při restartu consumera se pak podíváme do databáze a vytáhneme offset z naposledy uloženého záznamu. Tím máme zajištěno, že offset se do databáze uloží právě a jen tehdy, pokud se tam uloží i zpráva.</p>
+<p>Jenomže to není moc pružné řešení – ve chvíli, kdy bychom chtěli vyměnit cílovou databázi za nějaké jiné úložiště, museli bychom znova implementovat exactly once chování, přičemž do některých databází ani nemusí být možné uložit takto atomicky dva různé záznamy.</p>
+<p>Jednou z dalších cest je navrhnout systém tak, aby nevadilo, že se některé zprávy zpracovaly dvakrát. Třeba zprávu “nastav mzdu zaměstnance XYZ na 42 000 Kč” lze aplikovat vícekrát bez toho, aniž by to mělo vliv na výsledný stav systému. Naopak aplikovat vícekrát zprávu “zvyš mzdu zaměstnance XYZ o 5000 Kč” by už byl průšvih. I když jak pro koho.</p>
+<p>A nesmíme zapomenout ani na další řešení: vykašlat se na to, že se některé zprávy nezpracují nebo se zpracují vícekrát. Zní to děsivě, ale v realitě to není tak hrozné:</p>
+<ul>
+<li>Nepřesné výsledky dostáváme jen tehdy, když Kafka spadne. Pokud Kafka běží v pohodě, získáváme 100% správné výsledky. V praxi se nám nestává, že by Kafka cluster byl nějak nestabilní a každou chvíli padal.</li>
+<li>V bankovnictví si asi nemůžeme dovolit, abychom nějakou transakci zpracovali vícekrát nebo naopak abychom nějakou vynechali. Ale například v oblasti měření návštěvnosti tato kritéria tak přísná nebudou.</li>
+<li>Minule jsme si představovali <a href="/lambda-architecture">Lambda architekturu</a>, jejíž součástí je i batch větev, která má za úkol opravit data z realtime větve – nepřesné výsledky vzniklé díky pádům Kafky může ještě později opravit tato větev.</li>
+</ul>
+<p>Angličtina má pro toto hezké slovo, které neumím hezky přeložit: trade-off. Je to zkrátka na vás. Můžete si naimplementovat exactly once zpracování, ale nebude to zadarmo, nebude to jednoduché a pro spoustu případů stačí to, co Kafka poskytuje v základu.</p>
+<h2 id="náročnost-ukládání-offsetu">Náročnost ukládání offsetu</h2>
+<p>Už jsme zmínili, že ukládat offset s každou přečtenou zprávou je samo o sobě velmi náročné. Posílat do ZooKeeperu desítky tisíc požadavků za sekundu prostě není dobrý nápad. V realitě tak dokonce ani neoznamujeme změnu offsetu s každou jednotlivou přečtenou zprávou, ale po nějakých větších celcích. Typicky co x sekund. Pokud použijete javový high level consumer, bude ukládat offsety co x sekund do ZooKeeperu.</p>
+<p>My zatím nemáme tak velký provoz, takže si můžeme dovolit ukládat offsety každou sekundu, ale z příspěvků ostatních, které jsme četli, jsme vypozorovali, že používají i daleko větší intervaly, například celou jednu minutu. To znamená, že když consumer spadne sekundu předtím, než měl uložit offset, pak ty zprávy, které přečetl za 59 sekund, přečte znova.</p>
+<h2 id="kam-jinam-ukládat-offsety-consumerů">Kam jinam ukládat offsety consumerů?</h2>
+<p>ZooKeeper je dobrý, ale má jeden problém: není absolutně horizontálně škálovatelný. Což je vlastně docela ironické, když člověk uváží, že ho spousta podobných distribuovaných systému používá.</p>
+<p>Pokud máme tři servery se ZooKeeperem, funguje to tak, že jeden z nich je leader, všechny ostatní servery komunikují právě s tímto leaderem a zbylé dva uzly slouží jen jako replikace. Přidáme-li další dva servery do ZooKeeper clusteru, nijak nezvýšíme propustnost, ba právě naopak – bude se muset replikovat na více serverů, což bude více zdržovat. Všechny aplikace budou stále komunikovat s jedním serverem, s leaderem.</p>
+<p>Přestane-li ZooKeeper stíhat, můžeme buď upgradovat hardware … nebo změnit architekturu. V LinkedInu už si problémů se ZooKeeperem všimli a rozhodli se, že offsety consumerů už nebudou ukládat do ZooKeeperu, ale do něčeho jiného. Jenomže kam? Obzvlášť, když potenciálně můžeme mít v běhu tisíce Kafka consumerů?</p>
+<p>Ideálně by to chtělo systém, který zvládne zpracovávat tisíce požadavků za sekundu, je distribuovaný, má dobře vyřešené replikace a je odolný vůči výpadkům a snadno z něj zpětně přečteme uložené hodnoty. Plot twist – taková je přece Kafka!</p>
+<p>Ano, v novějších verzích Kafky se offsety ukládají zpátky do Kafky, do topicu s nějakým specifickým jménem. Offsety consumerů, které čtou topic <em>bidrequests</em> by se tak mohly ukládat třeba do topicu <em>bidrequests_offsets</em> apod. Consumer pak po startu přečte všechny zprávy v daném topicu a z úplně poslední zprávy zjistí naposledy uložený offset a odtud bude číst dále.</p>
+<h2 id="rebalancing-a-group-id">Rebalancing a group id</h2>
+<p>Dejme tomu, že náš topic <em>bidrequests</em> má čtyři partitiony a spustíme jednoho high level consumera, který tento topic čte. Consumer bude automaticky číst zprávy ze všech partition.</p>
+<div class="figure">
+<img src="/images/kafka/rebalancing1.svg" alt="">
+
+</div>
+<p>Co se stane, když spustíme druhého consumera, který bude číst stejný topic?</p>
+<p>To záleží na tom, jaké má <em>group id</em>. Pokud oběma consumerům nastavíme stejné group id, automaticky dojde k <em>rebalancingu</em>: consumeři si mezi sebe rovnoměrně rozdělí všechny partitiony z daného topicu a každý consumer tedy bude číst polovinu partitionů. První consumer bude číst partitiony 0 a 1, druhý 2 a 3.</p>
+<div class="figure">
+<img src="/images/kafka/rebalancing2.svg" alt="">
+
+</div>
+<p>Přidáme-li další dva consumery se stejným group id, dojde k dalšímu rebalancingu a každý consumer bude číst data z právě jedné partition. Přidáním pátého consumera už by se na situaci nic nezměnilo – čtyři consumeři by četli po jedné partition a pátý by nedělal nic.</p>
+<div class="figure">
+<img src="/images/kafka/rebalancing3.svg" alt="">
+
+</div>
+<p>Tímto způsobem lze efektivně škálovat consumery. Klidně bychom mohli mít v provozu pět consumerů na pěti různých serverech, na každém by se zpracovávala data z jedné partitiony a pátý consumer by sloužil čistě jako záloha. Ve chvíli, kdy by jeden z consumerů spadl, mohl by tento pátý po rebalancingu začít číst tu partition, kterou četl předchozí consumer.</p>
+<p>Consumer, kterému bychom nastavili jiné group id, by četl zprávy nezávisle na ostatních consumerech, které mají odlišné group id. Ti consumeři, které mají stejné group id, se mezi sebou dělí o partitiony. Ti consumeři, které mají rozdílné group id, pracují nezávisle na sobě.</p>
+<p>Můžeme mít skupinu consumerů s group id <span style="color: red"><em>live-consumers</em></span> a další skupinu s group id <span style="color:blue"><em>backup-consumers</em></span>. Přitom <em>live-consumers</em> by četli aktuální data z topicu a <em>backup-consumers</em> by četli den staré zprávy a zálohovaly by je třeba do Hadoopu. Obě skupiny by četly zprávy nezávisle na sobě a nezávisle na sobě by si ukládaly offsety.</p>
+<div class="figure">
+<img src="/images/kafka/rebalancing4.svg" alt="">
+
+</div>
+<p>Offsety se vždy ukládají pro trojici <code>[topic, partition, group_id]</code>. Na offsety se můžeme podívat do ZooKeeperu:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ get /kafka/consumers/some-group-id/offsets/bidrequests/<span class="number">0</span></span><br><span class="line"><span class="number">27631000</span></span><br></pre></td></tr></table></figure>
+<p>Číslo 27631000 značí naposledy uložený offset pro topic <em>bidrequests</em>, pro partitionu 0 a pro group id <em>some-group-id</em>.</p>
+<h3 id="rebalancing-může-být-mrcha">Rebalancing může být mrcha</h3>
+<p>Rebalancing se děje vždy, když se změní počet consumerů pro daný topic pro dané group id. Algoritmus je přibližně takový:</p>
+<ol style="list-style-type: decimal">
+<li>Všichni aktuální consumeři daného topicu a daného group id přestanou číst zprávy.</li>
+<li>Všichni consumeři uloží svůj aktuální offset.</li>
+<li>Rozhodne se, kteří consumeři budou číst jaké partitiony.</li>
+<li>Začne se číst.</li>
+</ol>
+<p>To zní jednoduše. Problém je, když chcete napsat aplikaci, která si sama řídí ukládání offsetů. Standardně se offsety ukládají co x sekund. Ale to můžete vypnout a můžete si ty offsety ukládat jak chcete pomocí metody <a href="https://kafka.apache.org/08/api.html" target="_blank" rel="external">commitOffsets</a>. Třeba ty offsety ukládat po každé stovce zpracovaných zpráv a podobně.</p>
+<p>Jenomže pokud vypnete automatické ukládání offsetů co x sekund, vypnete tím i ukládání offsetu, který probíhá v bodě 2) u rebalancingu. Což je trochu problémeček – při každém rebalancingu se v tuto chvíli <strong>neuloží</strong> offset aktuálně zpracované zprávy a při startu consumerů v bodě 4) se začne číst od offsetu, který byl uložený někdy předtím. Jinými slovy – některé zprávy nutně přečtete a zpracujete vícekrát.</p>
+<p>Řeklo by se, že stačí nějak reagovat na událost <em>rebalancing</em>, jenže … Kafka žádnou takovou událost neemituje. Takže smolíček.</p>
+<p>To jsme obešli tím, že jsme sice povolili automatické ukládání offsetů co x sekund, ale to x jsme nastavili šíleně vysoké, takže offsety se nám během rebalancingu uloží, ale pravidelné ukládání offsetů se dostane ke hře jednou za hodně dlouhou dobu, což už není takový problém.</p>
+<p>Je možné, že nějaké novější verze Kafky toto nějak vyřeší (LinkedIn má v plánu přepracovat consumer).</p>
+<h2 id="příště">Příště…</h2>
+<p>Příště se podíváme na to, jak v Kafce fungují replikace.</p>
+<div class="relatedBox"><div class="relatedArticlesBox"><h2 id="relatedArticles">Související články:</h2><ol><li><a href="/lambda-architecture/">Jak zpracováváme velké množství dat: Lambda Architecture</a></li><li><a href="/kafka/">Kafka messaging system</a></li><li><a href="/kafka-replikace/">Jak funguje replikace v Kafce</a></li><li><a href="/samza/">Samza: distributed stream processing framework</a></li><li><a href="/samza-windowing/">Windowing v Samze</a></li><li><a href="/samza-local-state/">Uložení lokálního stavu v Samze</a></li><li><a href="/druid-io/">Druid.io: distribuovaná immutable databáze pro analytické výpočty</a></li><li><a href="/druid-io-architektura/">Architektura Druid.io</a></li><li><a href="/druid-io-ingest/">Jak Druid.io agreguje data</a></li></ol></div></div><div class="articleTags"><strong><a href="/tags/bigdata">#bigdata</a></strong>, <strong><a href="/tags/kafka">#kafka</a></strong></div></div></article><div style="text-align: right"><div class="fb-like" data-layout="button_count" data-action="like" data-show-faces="true" data-share="true" style="margin-top: 10px; height: 30px"></div></div><div class="comments"><div id="disqus_thread"><noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div></div><footer class="post__foot u-cf"><ul class="post__tag u-fl"><li class="post__tag__item"><a href="/tags/bigdata/" class="post__tag__link">bigdata</a></li><li class="post__tag__item"><a href="/tags/kafka/" class="post__tag__link">kafka</a></li></ul><a href="/kafka-consumer/#disqus_thread" class="post__foot-link u-fr">Komentáře</a></footer></main><footer class="foot"><div class="foot-copy u-fl"><a href="/">Programio</a> píše <a href="http://www.havrlant.cz/">Lukáš Havrlant</a></div><menu class="page-menu u-fr"><li class="page-menu__item"><a title="Previous" href="/kafka-replikace/" class="page-menu__link icon-arrow-left"></a></li><li class="page-menu__item"><a title="Next" href="/kafka/" class="page-menu__link icon-arrow-right"></a></li></menu></footer><script>(function(h,g,l,k,j,i){j=h.createElement(g),i=h.getElementsByTagName(g)[0],
+j.src="//"+l+".disqus.com/"+k+".js",i.parentNode.insertBefore(j,i)})
+(document,"script","programio","embed");
+</script><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=
+function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;
+e=o.createElement(i);r=o.getElementsByTagName(i)[0];
+e.src='//www.google-analytics.com/analytics.js';
+r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));
+ga('create','UA-1559810-13');ga('send','pageview');
+</script><div id="fb-root"></div><script>(function(d, s, id) {
+var js, fjs = d.getElementsByTagName(s)[0];
+if (d.getElementById(id)) return;
+js = d.createElement(s); js.id = id;
+js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&appId=166268190106534&version=v2.0";
+fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script></body></html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="alternative" href="/atom.xml" title="Programio" type="application/atom+xml"><link rel="icon" href="/images/favicon.png"><title>Hexo.io: nahrání blogu na web - Programio</title><link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro"><link rel="stylesheet" href="/css/main.css" type="text/css"><!--[if lt IE 9]><script>(function(a,b){a="abbr article aside audio bdi canvas data datalist details dialog figcaption figure footer header hgroup main mark meter nav output progress section summary template time video".split(" ");for(b=a.length-1;b>=0;b--)document.createElement(a[b])})()</script><![endif]--></head><body><header class="head"><h1 class="head-title u-fl"> <a href="/">Programio</a></h1><nav class="head-nav u-fr"><ul class="head-nav__list"><li class="head-nav__item"><a href="/" class="head-nav__link">Domů</a></li><li class="head-nav__item"><a href="/archives" class="head-nav__link">Archiv</a></li><li class="head-nav__item"><a href="http://www.havrlant.cz/" class="head-nav__link">O autorovi</a></li><li class="head-nav__item"><a href="/rss.xml" class="head-nav__link">RSS</a></li></ul></nav></header><main class="main"><article class="post"><header class="post__head"><time datetime="2014-09-15T17:48:08.000Z" class="post__time">15. 9. 2014</time><h1 class="post__title"><a href="/deploy-hexoio/">Hexo.io: nahrání blogu na web</a></h1></header><div class="post__main echo"><p>V <a href="/hexoio/">minulém článku</a> jsme si řekli, jak založit blog pomocí Hexo.io a jak ho spravovat. Dnes přejdete k zábavnější části: jak dostat blog na web?</p>
+<ul>
+<li>První možnost je mít server s Node.JS. To není úplně jednoduchá záležitost, ale můžete to zkusit. Já to nezkoušel, ale účet na <a href="http://heroku.com" target="_blank" rel="external">Heroku</a> pro jistotu mám.</li>
+<li>Druhou možností je nahrát vygenerované soubory na jakýkoliv hosting. Výhoda použití Hexo.io je právě to, že činí nulové nároky na hosting. Pokud máte hosting s FTP přístupem, můžete ho použít. Nepotřebujete databázi, nepotřebujete ani PHP. Dokonce vám stačí <a href="http://www.dropboxwiki.com/tips-and-tricks/host-websites-with-dropbox" target="_blank" rel="external">Dropbox</a>. Publikace článku se pak scvrkne na to, že synchronizujete na disku dvě složky.</li>
+<li>Třetí možností je, že vlastně nepotřebujete ani klasický hosting, stačí vám GitHub Pages. To funguje tak, že si vytvoříte na Githubu normální repozitář, do kterého nahrajete zdrojové HTML kódy vašeho webu a GitHub vám pak umožní tyto zdrojáky prohlížet na adrese username.github.io. Publikaci nového článku pak prostě provedete commitem&amp;pushem. Což vám Hexo.io ještě dále ulehčí.</li>
+</ul>
+<h2 id="github-pages">GitHub Pages</h2>
+<p>Jak tedy nastavit Hexo.io tak, aby spolupracoval s GitHub Pages? Jako první zprovozníme GitHub Pages na samotném GitHubu. Následuje vyčerpávající seznam pokynů:</p>
+<ol style="list-style-type: decimal">
+<li>Vytvořte nový repozitář a pojmenujte ho “<em>username</em>.github.io”.</li>
+</ol>
+<p>To je vše.</p>
+<p>Pokud do tohoto repozitáře něco pushnete, zobrazí se to na adrese <em>username</em>.github.io. Teď půjdeme nastavit Hexo.io. Otevřete konfigurační soubor <code>/_config.yml</code>. Tam přidejte následující nastavení:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">deploy:&#10;  type: github&#10;  repository: git@github.com:username/username.github.io.git&#10;  branch: master</span><br></pre></td></tr></table></figure>
+<p>V položce repository je normální odkaz na váš repozitář, který se vám zobrazuje v Githubu (pokud to budete kopírovat odtud, nezapomeňte přepsat username na vaše přihlašovací jméno). Teď byste měli mít vše nastaveno a zbývá už jen vygenerovat obsah a deploynout ho na GitHub. Na to slouží dva příkazy:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hexo clean&#10;hexo generate&#10;hexo deploy</span><br></pre></td></tr></table></figure>
+<p>První příkaz vygeneruje statické soubory a druhý příkaz je pushne na GitHub. Pokud nedojde k nějaké chybě, uvidíte na “<em>username</em>.github.io” obsah blogu. Úplně první spuštění ale obyčejně pár minut trvá, toho se nelekejte. Další změny už jsou instantní.</p>
+<p>Příkaz <code>hexo clean</code> maže cache a je celkem blbé, že to nevolá vnitřně samotný <code>hexo generate</code>. Před <code>hexo deploy</code> si můžete zkontrolovat aktuální stav webu tak, že spustíte server bez <code>--drafts</code>, tj. jen jako <code>hexo server</code>.</p>
+<h2 id="github-pages-na-vlastní-doméně">GitHub Pages na vlastní doméně</h2>
+<p>Ano, já vím, že nechcete URL “<em>username</em>.github.io”, ale chcete provozovat GitHub Pages na vlastní doméně. Tak se pojďme podívat jak na to.</p>
+<p>Dejme tomu, že chcete blog zobrazovat na doméně <code>programio.havrlant.cz</code>. Jděte do administrace DNS a přidejte CNAME záznam pro doménu <code>programio.havrlant.cz</code> s hodnotou <code>username.github.io</code>.</p>
+<p>Dále si nainstalujte <a href="https://www.npmjs.org/package/hexo-generator-cname" target="_blank" rel="external">Hexo CNAME generator</a>. Stačí napsat (v rootu vašeho blogu):</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm install hexo-generator-cname</span><br></pre></td></tr></table></figure>
+<p>A v configu <code>/_config.yml</code> přidejte:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">plugins:&#10;- hexo-generator-cname</span><br></pre></td></tr></table></figure>
+<p>A to je celé. Tenhle plugin se postará o to, aby se do repozitáře přidal CNAME soubor se správným obsahem. Aby plugin fungoval, je nutné, aby byla v configu správně vyplněná položka <code>url</code>:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">url: http://programio.havrlant.cz/</span><br></pre></td></tr></table></figure>
+<h2 id="deploy-pomocí-ftp">Deploy pomocí FTP</h2>
+<p>Pokud nechcete používat GitHub Pages, můžete použít klasické FTP. Nainstalujte si <a href="https://www.npmjs.org/package/hexo-deployer-ftp" target="_blank" rel="external">Hexo FTP deployer</a> příkazem</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm install hexo-deployer-ftp</span><br></pre></td></tr></table></figure>
+<p>Přijdete plugin do nastavení:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">plugins:&#10;- hexo-deployer-ftp</span><br></pre></td></tr></table></figure>
+<p>a přidejte do configu nastavení FTP:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">deploy:&#10;  type: ftp&#10;  host: [ftp host]&#10;  user: [ftp user]&#10;  root: [path/to/your/blog/on/the/server]</span><br></pre></td></tr></table></figure>
+<p>Deployer používá program <code>lftp</code>, pokud ho nemáte, tak si ho nainstalujte (něco jako <code>brew install lftp</code>). Když poté zavoláte <code>hexo deploy</code>, deployer nahraje všechny public soubory do určené složky na FTP (a zeptá se u toho na heslo).</p>
+<h2 id="další-možnosti">Další možnosti</h2>
+<p>Samotné Hexo podoruje <a href="http://hexo.io/docs/deployment.html" target="_blank" rel="external">několik dalších možností</a> jak nahrát blog na web. Pokud vám nic ze zmiňovaného nevyhovuje, stále můžete nahrát vygenerované statické soubory někam na web ručně. Nebo můžete použít libovolný jiný program, který synchronizuje dvě složky přes FTP například a nějak automatizovaně ho spouštět.</p>
+<div class="relatedBox"><div class="relatedArticlesBox"><h2 id="relatedArticles">Související články:</h2><ol><li><a href="/hexoio/">Hexo.io: skutečný next-gen blogovací systém</a></li><li><a href="/jak-pracovat-s-obrazky-v-hexoio/">Jak pracovat s obrázky a statickými soubory v hexo.io</a></li></ol></div></div><div class="articleTags"><strong><a href="/tags/hexo">#hexo</a></strong></div></div></article><div style="text-align: right"><div class="fb-like" data-layout="button_count" data-action="like" data-show-faces="true" data-share="true" style="margin-top: 10px; height: 30px"></div></div><div class="comments"><div id="disqus_thread"><noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div></div><footer class="post__foot u-cf"><ul class="post__tag u-fl"><li class="post__tag__item"><a href="/tags/hexo/" class="post__tag__link">hexo</a></li></ul><a href="/deploy-hexoio/#disqus_thread" class="post__foot-link u-fr">Komentáře</a></footer></main><footer class="foot"><div class="foot-copy u-fl"><a href="/">Programio</a> píše <a href="http://www.havrlant.cz/">Lukáš Havrlant</a></div><menu class="page-menu u-fr"><li class="page-menu__item"><a title="Previous" href="/prisliby-v-javascriptu/" class="page-menu__link icon-arrow-left"></a></li><li class="page-menu__item"><a title="Next" href="/hexoio/" class="page-menu__link icon-arrow-right"></a></li></menu></footer><script>(function(h,g,l,k,j,i){j=h.createElement(g),i=h.getElementsByTagName(g)[0],
+j.src="//"+l+".disqus.com/"+k+".js",i.parentNode.insertBefore(j,i)})
+(document,"script","programio","embed");
+</script><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=
+function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;
+e=o.createElement(i);r=o.getElementsByTagName(i)[0];
+e.src='//www.google-analytics.com/analytics.js';
+r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));
+ga('create','UA-1559810-13');ga('send','pageview');
+</script><div id="fb-root"></div><script>(function(d, s, id) {
+var js, fjs = d.getElementsByTagName(s)[0];
+if (d.getElementById(id)) return;
+js = d.createElement(s); js.id = id;
+js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&appId=166268190106534&version=v2.0";
+fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script></body></html>
