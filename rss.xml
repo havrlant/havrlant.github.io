@@ -7,7 +7,7 @@
     <link>http://programio.havrlant.cz/</link>
     <atom:link href="/rss.xml" rel="self" type="application/rss+xml"/>
     <description></description>
-    <pubDate>Mon, 16 Nov 2015 17:07:19 GMT</pubDate>
+    <pubDate>Mon, 16 Nov 2015 18:10:55 GMT</pubDate>
     <generator>http://hexo.io/</generator>
     
     <item>
@@ -28,7 +28,7 @@
 </ul>
 <p>Některé důsledky předchozích dvou bodů:</p>
 <h3 id="optimistic-ui">Optimistic UI</h3>
-<p>Pokud vypálíme nějaký Command, předpokládáme, že uspěje. Přejmenuje-li uživatel kampaň, my vypálíme správný Command, ale v UI už všude ukazujeme nové jméno bez ohledu na to, jestli Command na backendu prošel, nebo neprošel. Říká se tomu <em>Optimistic UI udpating</em>. Výsledkem je, že UI reaguje okamžitě na akce uživatele, rychlost odezvy backendu na to nemá vliv.</p>
+<p>Pokud vypálíme nějaký Command, předpokládáme, že uspěje. Přejmenuje-li uživatel kampaň, my vypálíme správný Command, ale v UI už všude ukazujeme nové jméno bez ohledu na to, jestli Command na backendu prošel, nebo neprošel. Říká se tomu <em>Optimistic UI updating</em>. Výsledkem je, že UI reaguje okamžitě na akce uživatele, rychlost odezvy backendu na to nemá vliv.</p>
 <p>Pokud ale Command na backendu opravdu selže, musíme nějak zareagovat v UI, nemůžeme se celou dobu tvářit, že se název kampaně změnil, i když se ve skutečnosti na backendu nezměnil. Tohle je obecně těžký problém, protože to selhání může nastat třeba až za deset sekund a během té doby už uživatel mohl přejít na jinou stránku a mohl udělat několik dalších akcí. Nemáme to dobře vyřešené pro všechny případy a ještě s tím asi budeme bojovat.</p>
 <p>Protože nemáme úplně ideálně vyřešené undo akce Commandů, snažíme se alespoň provádět co nejvíce validací přímo v UI, abychom na backend nepálili Commandy, které jistě neprojdou byznys logikou na backendu. Má-li být zadaná cena kladná, nedovolíme odeslat Command se zápornou cenou. Samozřejmě to ale nikdy nebude stoprocentní, když už nic, tak backend může spadnout.</p>
 <h3 id="performance">Performance</h3>
