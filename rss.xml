@@ -7,8 +7,86 @@
     <link>http://programio.havrlant.cz/</link>
     <atom:link href="/rss.xml" rel="self" type="application/rss+xml"/>
     <description></description>
-    <pubDate>Mon, 15 Jun 2015 15:02:39 GMT</pubDate>
+    <pubDate>Mon, 16 Nov 2015 17:07:19 GMT</pubDate>
     <generator>http://hexo.io/</generator>
+    
+    <item>
+      <title><![CDATA[Jak vypadá architektura našeho systému: Event sourcing a CQRS]]></title>
+      <link>http://programio.havrlant.cz/architektura-event-sourcing/</link>
+      <guid>http://programio.havrlant.cz/architektura-event-sourcing/</guid>
+      <pubDate>Mon, 16 Nov 2015 17:07:19 GMT</pubDate>
+      <description>
+      <![CDATA[<p>Aktuálně vyvíjíme nový video ad server. Plus minus je to systém, pomocí kterého můžete zadávat reklamní kampaně, které se pak budou zobra]]>
+      </description>
+      <content:encoded><![CDATA[<p>Aktuálně vyvíjíme nový video ad server. Plus minus je to systém, pomocí kterého můžete zadávat reklamní kampaně, které se pak budou zobrazovat ve video přehrávačích. V článku popíši, jaké technologie jsme pro to použili a jak jsme je všechny zkombinovali do jednoho funkčního celku.</p>
+<p>Celý příběh začíná ve webovém UI/administraci, což je single-page aplikace napsaná v Angularu (promiň, Dane). Web reaguje s backendem přes AJAX na základě <a href="http://martinfowler.com/bliki/CQRS.html" target="_blank" rel="external">vzoru CQRS</a> a backend samotný je postavený na základech <a href="http://martinfowler.com/eaaDev/EventSourcing.html" target="_blank" rel="external">Event Sourcingu</a>.</p>
+<h2 id="commandy-a-queries">Commandy a Queries</h2>
+<p>Veškerá interakce mezi webovým UI a backendem probíhá skrze Commandy a Queries:</p>
+<ul>
+<li><strong>Query</strong> je ajaxový HTTP GET požadavek, který UI vypálí, když potřebuje zjistit nějaké informace z backendu. Query nikdy nesmí změnit stav systému, jen vrátit data. Typická Query může být <em>Vrať mi seznam kampaní daného uživatele</em>.</li>
+<li><strong>Command</strong> je HTTP POST (PUT…) požadavek, který se pokouší změnit stav systému. Typický Command je <em>Vytvoř novou kampaň</em> nebo <em>změň název kampaně</em>. Commandy nikdy nevrací žádná data, v odpovědi máme jen jednoduchý indikátor toho, jestli se Command podařilo zpracovat, nebo jestli nastala chyba.</li>
+</ul>
+<p>Některé důsledky předchozích dvou bodů:</p>
+<h3 id="optimistic-ui">Optimistic UI</h3>
+<p>Pokud vypálíme nějaký Command, předpokládáme, že uspěje. Přejmenuje-li uživatel kampaň, my vypálíme správný Command, ale v UI už všude ukazujeme nové jméno bez ohledu na to, jestli Command na backendu prošel, nebo neprošel. Říká se tomu <em>Optimistic UI udpating</em>. Výsledkem je, že UI reaguje okamžitě na akce uživatele, rychlost odezvy backendu na to nemá vliv.</p>
+<p>Pokud ale Command na backendu opravdu selže, musíme nějak zareagovat v UI, nemůžeme se celou dobu tvářit, že se název kampaně změnil, i když se ve skutečnosti na backendu nezměnil. Tohle je obecně těžký problém, protože to selhání může nastat třeba až za deset sekund a během té doby už uživatel mohl přejít na jinou stránku a mohl udělat několik dalších akcí. Nemáme to dobře vyřešené pro všechny případy a ještě s tím asi budeme bojovat.</p>
+<p>Protože nemáme úplně ideálně vyřešené undo akce Commandů, snažíme se alespoň provádět co nejvíce validací přímo v UI, abychom na backend nepálili Commandy, které jistě neprojdou byznys logikou na backendu. Má-li být zadaná cena kladná, nedovolíme odeslat Command se zápornou cenou. Samozřejmě to ale nikdy nebude stoprocentní, když už nic, tak backend může spadnout.</p>
+<h3 id="performance">Performance</h3>
+<p>Protože Commandy nevrací žádná data a předpokládáme, že projdou, není potřeba, aby jejich zpracování bylo extrémně rychlé. To má za následek, že si při jejich zpracování můžeme dovolit provádět více činností a celkově nemusí být celý kód kolem zpracování Commandů optimalizovný na rychlost. Což je v naprostém protikladu se zpracováním Queries, na které naopak uživatel čeká. Query posíláme, když potřebujeme z backendu zjistit nějaké informace, proto se naopak snažíme, aby zpracování Queries bylo co nejrychlejší.</p>
+<h3 id="generování-idéček">Generování IDéček</h3>
+<p>Zajímavá situace nastane, když v UI vytváříme novou kampaň. Člověk by asi čekal, že když pošlu požadavek na vytvoření nové kampaně, backend mi v odpovědi vrátí ID této kampaně, abych ji mohl dále adresovat. Jenže naše Commandy nevrací žádná data. Vyřešili jsme to tak, že ID nově vzniklé kampaně se už posílá v samotném Commandu. V rámci POST požadavku na vytvořením nové kampaně pošleme i její ID. Používáme <a href="https://github.com/broofa/node-uuid" target="_blank" rel="external">UUID v4</a>, takže máme prakticky garantované, že toto vygenerované ID bude unikátní. Webové UI zkrátka vygeneruje nové UUID a pošle ho backendu, který případně může zkontrolovat, jestli už dané ID není použito.</p>
+<h2 id="event-sourcing">Event sourcing</h2>
+<p>Další buzzword, který máme na skladě, je <strong>event sourcing</strong>. Základní myšlenkou event sourcingu je, že hlavní databáze obsahuje historii všech změn, které uživatel v systému provedl a jedině od těchto změn se odvíjí stav systému. Historie změn = Single Source of Truth. Historie změn je už z principu neměnná, co se jednou stalo, nemůže se odestát. Přečte-li nějaká aplikace všechny změny, dostane aktuální stav systému. Těmto <em>změnám</em> pak říkáme <strong>Eventy</strong> neboli <strong>Události</strong>.</p>
+<p>V praxi to u nás funguje takto: uživatel změní v administraci název kampaně, my vypálíme Command na backend, tam ověříme nějakou byznys logiku (dejme tomu jestli název není moc dlouhý) a pokud je vše v pořádku, vytvoříme Událost <code>CampaignNameSet</code>. Tuto Událost uložíme do <em>Event Store</em>, což máme aktuálně implementované jako kolekci v <a href="https://www.mongodb.org/" target="_blank" rel="external">Mongu</a> (v SQL světě by to byla prostě tabulka). V této kolekci máme uchované všechny Události, které kdy v našem systému nastaly. Událost je přitom jednoduchý JSON objekt, něco takového:</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    eventType: "CampaignNameSet",</span><br><span class="line">    entityId: "cf3f128e-5051-47fe-a961-da3e55422258",</span><br><span class="line">    datetime: "2015-09-27T06:26:51.312Z",</span><br><span class="line">    data: &#123;</span><br><span class="line">        name: "Nový název kampaně"</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Těch dat je tam ve skutečností více, ale to je teď jedno. A proč používáme zrovna Mongo? Potřebovali jsme databázi, která obstojně zvládá replikace a shardování a umí dobře pracovat s JSONem. Mongo to tehdy umělo asi nejlépe.</p>
+<h2 id="instancování-entit-při-zpracování-commandů">Instancování entit při zpracování Commandů</h2>
+<p>Při zpracování Commandu potřebujeme znát aktuální stav systému, abychom mohli vyhodnotit všechna pravidla. Při zpracování Commandu na přejmenování kampaně bychom mohli kontrolovat dvě pravidla: jestli není název moc dlouhý a jestli se liší od předchozího názvu – nemá smysl přejmenovávat kampaň na stejný název. Kód by mohl vypadat přibližně takhle:</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">Campaign.prototype.handleSetCampaignNameCommand = <span class="function"><span class="keyword">function</span>(<span class="params">command</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (command.data.name.length &gt; <span class="number">50</span>) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">Error</span>(<span class="string">"Campaign name is too long"</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (command.data.name !== <span class="keyword">this</span>.name) &#123;</span><br><span class="line">        produceNewEvent(Events.CampaignNameSet, &#123;name: command.data.name&#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>V <code>command.data.name</code> máme nový název kampaně. Aby tento kód fungoval, je nutné, aby v době zpracování Commandu byl v <code>this.name</code> aktuální název kampaně. Před samotným zpracováním Commandu proto tzv. <em>instancujeme</em> entitu kampaně, na které se Command provádí. To znamená, že z Monga vytáhneme všechny Události, které se týkají dané kampaně a aplikujeme je na danou entitu. Aplikace Události není o nic složitější než předchozí handle metoda:</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Campaign.prototype.applyCampaignNameSet = <span class="function"><span class="keyword">function</span>(<span class="params">event</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">this</span>.name = event.data.name;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Pokud uživatel desetkrát přejmenoval danou kampaň, vyvolá se desetkrát metoda <em>applyCampaignNameSet</em> a desetkrát se přepíše hodnota <code>this.name</code>. Na konci zpracování ale budeme mít entitu v aktuálním stavu (taháme všechny Události, ne jen <code>CampaignNameSet</code>), což je to, co chceme.</p>
+<p>V tuto chvíli můžeme začít zpracovávat command samotný, tzn. že v tuto chvíli zavoláme předchozí metodu <code>handleSetCampaignNameCommand</code>, ve které se už můžeme kvalifikovaně rozhodnout, jestli vypálíme Událost <code>CampaignNameSet</code> nebo jestli to nemá smysl.</p>
+<p>V případě nutnosti si můžeme instancovat další entity. Toto instancování entit není zrovna nejrychlejší operace, ale můžeme využít faktu, který jsme uvedli výše – zpracování Commandů nemusí být superrychlé. V současnosti platí, že vytvoření aktuální instance entity = dotaz do Monga na Události pro tu danou entitu, ale až to bude moc pomalé, dá se to relativně jednoduše cachovat.</p>
+<p>Má-li vzniknout Událost, musí to být na popud nějakého Commandu. Není možné, aby vznikla Událost bez Commandu.</p>
+<h2 id="transakční-zpracování">Transakční zpracování</h2>
+<p>Jeden Command může vyprodukovat více než jednu Událost. Příkladem může být třeba pausnutí kampaně. Pausne-li uživatel kampaň, vyvolá se pochopitelně Událost <em>CampaignPausedSet</em>, ale spolu s tím se vyvolá Událost <em>CampaignRunnableStateChanged</em>. <em>CampaignRunnableStateChanged</em> je Událost, která nám říká, jestli může kampaň běžet, nebo jestli je “něco špatně”.</p>
+<p>Aby kampaň mohla běžet, musí mít nastaveno kdy a kde má běžet a nesmí být pausnutá. Pokud splňuje všechny tři parametry, pak je i <em>Runnable</em>, pokud jeden z těch parametrů změníme, už není <em>Runnable</em>. Tím, že vypalujeme Událost <em>CampaignRunnableStateChanged</em> si ulehčujeme práci, protože všude jinde už nám pak stačí reagovat na tuto Událost a nemusíme nikde jinde vyhodnocovat logiku, jestli má kampaň všechny potřebné vlastnosti.</p>
+<p>Aby vše fungovalo jak má, je nutné, aby se buď vyprodukovaly obě Události, nebo ani jedna. Proto všechny Události vyprodukované jedním Commandem ukládáme jako jednu transakci, tj. jako jeden Mongo objekt.</p>
+<h2 id="queries-a-view-buildery">Queries a View Buildery</h2>
+<p>Zpracování Commandů sice nemusí být rychlé, ale zpracování Queries ano. Jak to řešíme? Držíme aktuální stav entit v Mongu v jiných kolekcích. Tyto kolekce jsou vytvářeny aplikacemi, které nazýváme <em>View Builder</em>. View Buildery čtou všechny Události a na některé z nich nějak po svém reagují; typicky aktualizují záznam v Mongu a vytvářejí specifické <em>View</em>. Důležité je, že nemáme předepsané, jak takové View má vypadat.</p>
+<p>Každý View Builder může vytvářet View, které se hodí pro nějaký konkrétní specifický účel a dokonce je možné, abychom ve dvou různých Views měli prakticky stejná data jenom v jiné struktuře. Důležité je, aby View bylo optimalizované pro čtení. Příklad: máme <em>Campaigns</em> View, ve kterém máme uloženy všechny informace o všech kampaních (jeden dokument = jedna kampaň); včetně názvu. V jiném View máme zase uložená ID všech entit (kampaně, publishery, …) a jejich názvy, nic víc. Toto View používáme v reportech, protože tam máme na vstupu seznam IDéček a potřebujeme je rychle přeložit na lidská jména.</p>
+<p>Kód View Builderů je opět velmi jednoduchý. Vlastně jen vytváříte <code>apply</code> metody těch Událostí, na které chcete reagovat:</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">CampaignViewBuilder.prototype.applyCampaignNameSet = <span class="function"><span class="keyword">function</span>(<span class="params">event</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> mongo.updateDocument(event.entityId, &#123;name: event.data.name&#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">CampaignViewBuilder.prototype.applyCampaignCurrencySet = <span class="function"><span class="keyword">function</span>(<span class="params">event</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> mongo.updateDocument(event.entityId, &#123;name: event.data.currency&#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>A jak se View Builder dostane k novým Událostem? Řekli jsme si, že po zpracování Commandu se Událost pošle do Event Store. Kromě toho se ještě pošle na <em>Event Bus</em> a skrze něj se Událost dostane do všech View Builderů. Event Bus je implementovaný pomocí <a href="http://zeromq.org/" target="_blank" rel="external">ZeroMQ</a> (zkoušeli jsme i <a href="http://nanomsg.org/" target="_blank" rel="external">nanomsg</a>). ZeroMQ není nic extra složitého, je to jen jednoduchý způsob, jak dostat zprávu z jednoho místa na druhé. Kdybychom celý event sourcing implementovali dnes, asi bychom místo ZeroMQ použili <a href="/kafka/">Kafku</a>.</p>
+<p>Naše typická Query je proto implementovaná tak, že se jen podívá do předzpracované Mongo kolekce, položí jednoduchý dotaz a vrátí výsledek.</p>
+<h2 id="změna-view">Změna View</h2>
+<p>Důležitou výhodou je, že View je jen jiný pohled na Události z Event Store. Což znamená, že když se nám současné View nelíbí, můžeme ho změnit. Stačí jen resetovat View Builder a nechat ho znova přečíst všechny Události a naše View můžeme vypadat úplně jinak. Příklad z praxe: zákazník si může v našem webovém UI vytvořit portfolio, což je vlastně web + podsekce. Může to vypadat třeba takto:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">idnes.cz&#10;    | Kultura&#10;    | Technet&#10;        | Web&#10;        | V&#283;da&#10;    | Ekonomika&#10;    | ...</span><br></pre></td></tr></table></figure>
+<p>My jsme se tuto strukturu na poprvé snažili ve View uložit tak, jak ji vidíte. Tj. jeden dokument = celý web včetně všech podsekcí:</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    name: "idnes.cz",</span><br><span class="line">    nodes: &#123;</span><br><span class="line">        kultura: &#123; name: "Kultura", nodes: &#123; ... &#125; &#125;,</span><br><span class="line">        technet: &#123; name: "Technet", nodes: &#123; web: &#123; ... &#125; ... &#125; &#125;,</span><br><span class="line">        ekonomika: &#123; name: "Ekonomika", nodes: &#123; ... &#125; &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Jenomže časem se ukázalo, že je to blbost a že by bylo lepší uložit to stylem jeden dokument = jedna sekce s tím, že bychom v každém dokumentu měli uložené IDéčka podsekcí. Tj. takto:</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#123; name: "idnes.cz", id: "187c48ce", nodes: ["846ed763", "3c33863f", "106ba878"] &#125;</span><br><span class="line">&#123; name: "Kultura", id: "846ed763", nodes: [...] &#125;</span><br><span class="line">&#123; name: "Technet", id: "3c33863f", nodes: [...] &#125;</span><br><span class="line">&#123; name: "Ekonomika", id: "106ba878", nodes: [...] &#125;</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>Přepsali jsme <code>PortfolioViewBuilder</code>, aby jinak reagoval na Události týkající se sekcí, přepsali jsme Query, která vracela strukturu portfolio a to bylo vše. Kompletně změnit strukturu dat, ze kterých taháme informace o portfolio, byla práce na dva dny i s testy…</p>
+<h2 id="intermezzo">Intermezzo</h2>
+<p>V souvislosti s touto změnou jsme přemýšleli, jak efektivně uložit informaci o portfoliu tak, aby bylo možné jednoduchým dotazem vrátit všechny sekce. V předchozí struktuře totiž platí, že idnes.cz ví jen o svých přímých potomcích, tj. o sekcích “Kultura”, “Technet” a “Ekonomika”. Že existují podsekce “Web” a “Věda” zjistíme až z dokumentu “Technet”. Existuje jeden hezký postup, jak jedním dotazem vrátit všechny své potomky, nehledě na úroveň, viz <a href="http://docs.mongodb.org/manual/tutorial/model-tree-structures-with-nested-sets/" target="_blank" rel="external">Model Tree Structures with Nested Sets</a>. Celý princip je pochopitelný z obrázku, který si vypůjčím z odkazované dokumentace:</p>
+<div class="figure">
+<img src="/images/data-model-example-nested-set.png" alt="">
+
+</div>
+<p>Každý uzel stromu si očíslujeme (projdeme strom do hloubky a očíslujeme jak je vidět z obrázku) a když chceme najít všechny potomky uzlu <em>Programming</em>, nalezneme všechny uzly, které mají levé číslo větší než 2 a pravé číslo menší než 11. To je celé. Dobré, ne?</p>
+<p>Ale my jsme to nepoužili, protože nám stačí vždy vrátit celý strom, nepotřebujeme nikdy vracet část podstromu.</p>
+<h2 id="eventual-consistency">Eventual consistency</h2>
+<p>Command je považován za úspěšně zpracovaný, pokud se podařilo všechny vygenerované Události uložit do Event Store. Ve chvíli, kdy Události jsou v Event Store, nejdou už nijak odstranit, nejdou změnit – zůstanou v systému na věky věků. A naopak – pokud se Událost do Event Store nedostane, jako by se nic nestalo.</p>
+<p>Jenomže když se Událost dostane do Event Store, tak to ještě neznamená, že se tato změna projevila ve všech částech systému. Někde vedle existuje View Builder, který čte tyto Události a reaguje na ně. Command ale nemá jak zjistit, jestli už na danou Událost reagovaly všechny View Buildery. Proto se může stát, že uživatel přejmenuje kampaň, Command úspěšně projde, uživatel refreshne webové UI a uvidí starý název kampaně. <code>CampaignViewBuilder</code> zkrátka ještě nestihl přečíst <code>CampaignNameSet</code> Událost a uložit do View aktuální stav.</p>
+<p>Obecně proto platí, že Query nemusí vrátit aktuální stav systému, který platil v době, kdy byla Query přijata na backendu. Query vrací stav systému, který je uložený ve View a ten může být zpožděný oproti opravdovému stavu. Pokud bychom <em>nějaký čas</em> neprodukovaly žádné Události, tak by se View <em>nakonec</em> do skutečného aktuálního stavu dostalo, až by všechny View Buildery přečetly a zpracovaly všechny Události. Proto se tomuto principu říká <em>Eventual consistency</em>.</p>
+<p>Teoreticky bychom mohli zařídit, aby Query vrátila aktuální stav systému. Museli bychom ale Query implementovat tak, aby se nikdy nedotazovala View, ale aby vždy instancovala entity přímo z Event Store. Jenomže tím bychom se zbavili dvou výhod: bylo by to pomalejší a nemohli bychom si data přeskládat a předzpracovat pro konkrétní Query tak, jak zrovna potřebujeme. Celkově bychom tím řádově více zatěžovali Event Store a stal by se z něj ještě větší single point of failure.</p>
+<p>Jedním z pricnipů CQRS je oddělení Read (=Queries) a Write (=Commandy) částí systému, takže by nebylo dobré je míchat.</p>
+<h2 id="na-jaké-problémy-jsme-narazili">Na jaké problémy jsme narazili</h2>
+<p>…si povíme zase příště v dalším článku.</p>
+]]></content:encoded>
+      <comments>http://programio.havrlant.cz/architektura-event-sourcing/#disqus_thread</comments>
+    </item>
     
     <item>
       <title><![CDATA[Jak vypadá naše vývojové prostředí]]></title>
@@ -1342,97 +1420,6 @@ window.onload = function() {
 <p>Příště se podíváme na to, jak v Kafce fungují replikace.</p>
 ]]></content:encoded>
       <comments>http://programio.havrlant.cz/kafka-consumer/#disqus_thread</comments>
-    </item>
-    
-    <item>
-      <title><![CDATA[Kafka messaging system]]></title>
-      <link>http://programio.havrlant.cz/kafka/</link>
-      <guid>http://programio.havrlant.cz/kafka/</guid>
-      <pubDate>Mon, 16 Mar 2015 19:00:00 GMT</pubDate>
-      <description>
-      <![CDATA[<p><a href="http://kafka.apache.org/" target="_blank" rel="external">Kafka</a> je aplikace, která umožňuje posílat velké množství malých zpr]]>
-      </description>
-      <content:encoded><![CDATA[<p><a href="http://kafka.apache.org/" target="_blank" rel="external">Kafka</a> je aplikace, která umožňuje posílat velké množství malých zpráv napříč servery, přičemž umožňuje horizontální škálování a zároveň všechny zprávy replikuje na více serverů – vypadne-li jeden z nich, jiný ho nahradí.</p>
-<p>V celé sérii budu používat podivnou czenglish. Pojmu “partition” budu zkrátka říkat partition, protože překládat to jako oddíl mi přijde divné a navíc není na první pohled jasné, jaký původní termín myslím. Zkrátka se v práci bavíme o partitionech a když máme těch partitionů málo, zkusíme nějaké partitiony přidat. Sorry.</p>
-<h2 id="k-čemu-kafku-používáme">K čemu Kafku používáme</h2>
-<p>U nás ve firmě se nově snažíme Kafku používat na logování všech <em>zpráv</em>, které v systému vznikají a které chceme nějak zpracovávat. Na konkrétním příkladu si ukážeme, k čemu Kafka slouží a jak ji používáme.</p>
-<p>Use case máme následující: z nějakého webu, například z iDnes.cz, nám přijde požadavek na zobrazení reklamy, my spustíme aukci a v té vybereme nejlepší reklamu, vrátíme ji jako odpověď a tato reklama se pak zobrazí na iDnesu. Aukci provedeme tak, že pošleme HTTP request několika serverům, kterým říkáme DSPéčka, ta pošlou nazpátek HTML kód reklamy a cenu, kterou nabízí za zobrazení. Z odpovědí vybereme nejvhodnější reklamu. DSPéčka jsou projekty úplně jiných firem. Tyto HTTP requesty zaslané DSPéčkům nazýváme <em>bid request</em>, DSPéčkové odpovědi nazýváme <em>bid response</em>. Aukce obsluhuje projekt <em>AdSelectorProxy</em>, což je HTTP server napsaný v Node.JS.</p>
-<p>Další informace o tom, co vlastně stavíme, si můžete přečíst v <a href="/lambda-architecture">předchozím článku</a></p>
-<div class="figure">
-<img src="/images/kafka/rtb1.svg" alt="">
-
-</div>
-<p>Prostě aukce, nic víc. iDnes prodává reklamní pozici na stránce, DSPéčka nabízí peníze za pozici a my to celé zprostředkováváme.</p>
-<p>Rádi bychom všechny tyto bid requesty a bid responsy ukládali a později analyzovali. Například bychom chtěli jednoduše zjistit, které DSPéčka spolu nejčastěji soutěží, o kolik se v průměru liší nabídky u dvou nejvyšších nabídek a podobně. Konkrétně bychom mohli zjistit, že DSP 1 často soutěží s DSP 2 a většinou prohrává, ale vždy jen o několik halířů. To je zajímavá informace, se kterou lze dále pracovat.</p>
-<p>V <a href="https://code.google.com/p/openrtb/wiki/OpenRTB_Examples" target="_blank" rel="external">dokumentaci RTB</a> se můžete podívat na to, jak takový reálný bid request vypadá.</p>
-<p>Chceme tedy ukládat do nějaké databáze jak bid požadavky, tak bid odpovědi. Ale toto ukládání se nesmí dít přímo v AdSelectorProxy, protože před samotným uložením do databáze musíme ještě všechna data nějak předzpracovat, obohatit o data, která se sice neposílají DSPéčkům, ale v databázi je mít chceme a podobně a musíme nějak spojit request a response, aby bylo vidět, že patří k sobě.</p>
-<p>To je poměrně dost práce na to, aby to dělal náš už tak velice vytížený HTTP server AdSelectorProxy a navíc to ani není jeho zodpovědnost. Místo toho chceme tato data dostat na úplně jiný server, který bude zodpovědný právě za obohacení dat a za uložení do příslušné databáze. Na tento jiný server dostaneme všechny zprávy právě skrze Kafku.</p>
-<h2 id="základní-pojmy-v-kafce">Základní pojmy v Kafce</h2>
-<p>Kafka má tři základní části: <strong>producer</strong>, který posílá zprávy do Kafky, <strong>broker</strong>, který tyto zprávy uchovává a <strong>consumer</strong>, který tyto zprávy čte.</p>
-<p>V Kafce jsme vytvořili <strong>topic</strong> <em>bidrequests</em>. Topic je základní logická jednotka, se kterou Kafka pracuje. Pro různé typy zpráv můžeme založit různé topicy. Takže pro bid response máme zase topic <em>bidresponses</em>. Každý bid request, který AdSelectorProxy pošle DSPéčkům, zároveň pošle ve formátu JSON do Kafky do topicu <em>bidrequests</em>. Náš projekt AdSelectorProxy se v tomto případě chová jako Kafka <strong>producer</strong> – producer je aplikace, která posílá data do Kafky.</p>
-<p>Na úplně jiném serveru nám běží Kafka <strong>broker</strong>. Ve chvíli, kdy pošleme zprávu do topicu <em>bidrequests</em>, broker zprávu přijme a <strong>uloží ji na konec souboru</strong>, ve kterém jsou uchované předchozí zprávy ze stejného topicu. Každá zpráva, která prochází Kafkou, se <strong>vždy</strong> uloží do souboru – je to jeden ze základních rozdílů oproti podobným programům jako je RabbitMQ nebo ZeroMq. Zpráva, která je potvrzená jako uložená, je dále poskytnuta ke zpracování.</p>
-<p>Na třetím serveru pak běží Java aplikace, která je u brokera přihlášená jako <strong>consumer</strong> topicu <em>bidrequests</em> a tato aplikace čte příchozí bid requesty a dále je zpracovává. Obecně vzato může consumer dělat se zprávami cokoliv – může každou přečtenou zprávu uložit do SQL databáze, může je poslat na jiný HTTP server, může je zase poslat zpátky do Kafky do jiného topicu… My jako consumera používáme <a href="http://samza.apache.org/" target="_blank" rel="external">Samzu</a>, o které budeme mluvit někdy příště.</p>
-<p>Producer, broker a consumer mohou být na jednom stroji, ale typicky jsou to tři rozdílné servery. Producer tedy posílá zprávy na Kafka broker, Kafka broker všechny zprávy ukládá k sobě na disk, přičemž si u každé zprávy uloží informaci o tom, do jakého topicu patří a nakonec Kafka broker odešle zprávy z daného topicu nějakému Kafka consumerovi, který s těmi daty udělá co uzná za vhodné. To je celé základní flow.</p>
-<div class="figure">
-<img src="/images/kafka/basickafkaflow.svg" alt="">
-
-</div>
-<h2 id="offset-zprávy">Offset zprávy</h2>
-<p>Broker každou příchozí zprávu ukládá na disk a smaže ji až po uplynutí nastavené doby – vůbec nezáleží na tom, jestli tu zprávu nějaký consumer přečetl, nebo ne. To nám umožňuje, aby zprávy z jednoho topicu mohlo číst více consumerů a každý consumer může dokonce číst různě staré zprávy.</p>
-<p>Každá zpráva v topicu má svůj číselný identifikátor, kterému se říká <strong>offset</strong>. První poslaná zpráva má offset 0, třicátá má offset 29 atd. Zprávy jsou vždy seřazené podle toho, v jakém pořadí přišly. Když se consumer přihlásí ke čtení, řekne brokeru “chci zprávy z topicu <code>ABC</code> od offsetu <code>x</code>” a broker mu je začne posílat. Máme v provozu dva rozdílné consumery:</p>
-<ol style="list-style-type: decimal">
-<li><p>První consumer zkrátka čte aktuální bid requesty a dělá s nimi nějaké transformace a posílá je do databáze (to je ta Samza, více příště).</p></li>
-<li><p>Druhý consumer dělá jednou denně zálohy. Spustí se po půlnoci, přečte z topicu všechny dosud jím nepřečtené zprávy a uloží je do Hadoopu jako zálohu. Zároveň si uloží offset naposledy zpracované zprávy, aby další den věděl, odkud má zase začít. Kromě toho, že takto data zálohujeme, tak v budoucnu plánujeme nad těmito daty provádět nějakou analýzu.</p></li>
-</ol>
-<p>Každý consumer se sám stará o ukládání offsetu naposledy přečtené zprávy. Je to celkem věda, ale o tom později.</p>
-<h2 id="partitions">Partitions</h2>
-<p>Co se stane ve chvíli, kdy náš Kafka broker přestane zvládat zpracovávat zprávy, které do něj posíláme? Kafka má vysokou propustnost, dejme tomu, že na jednom stroji zvládneme zpracovat 50 000 zpráv za sekundu. Ale co když chceme zpracovat 100 000 zpráv? Nebo 100 000 000 zpráv?</p>
-<p>Řešením je <strong>partition</strong>. Každý topic můžeme rozdělit na několik partitionů. Každá partition pak může být zpracována na jiném brokeru/serveru. Pokud nastavíme deset partitionů, můžeme provoz rozprostřít mezi deset serverů. 100 000 zpráv bychom mohli zpracovat tak, že vytvoříme dvě partitiony a provoz proženeme přes dva Kafka brokery:</p>
-<div class="figure">
-<img src="/images/kafka/partitions.svg" alt="">
-
-</div>
-<p>V AdSelectorProxy se sami musíme postarat o to, aby polovina zpráv šla do partition #1 a druhá polovina do partition #2. Naše architektura ale spíše vypadá tak, že máme několik producerů, kteří paralelně zapisují zprávy do Kafka brokerů, přičemž typicky každý producer zapisuje do všech partitionů.</p>
-<div class="figure">
-<img src="/images/kafka/partitionmultipleproducers.svg" alt="">
-
-</div>
-<p>V tomto obrázku tak máme tři webové servery, které zapisují do dvou partitions a dále máme dva consumery, přičemž každý consumer čte jen data z jedné partition. Mohli bychom mít jednoho consumera, který čte data z obou partitions, ale mohli bychom narážet na limity sítě nebo na jiné limity. Takto je architektura více distribuovaná.</p>
-<p>Partition je dále nedělitelná jednotka – jedna partition nemůže být zpracovávána na více Kafka brokerech, vždy platí, že jedna partition je zpracovávána na právě jednom serveru/Kafka brokeru. Stejně tak nemůžeme mít dva consumery, kteří by si tu partitionu rozdělili a každý četl jenom jednu polovinu dat z dané partitiony.</p>
-<p>Počet partition tedy určuje, jak moc může být zpracovávání zpráv distribuované. Proto je dobré nastavit jich spíše více než méně. Počet partitionů sice lze měnit i za provozu, ale není to úplně jednoduché. Lepší je na začátku “přestřelit” a nastavit velký počet partitionů než to každou chvíli v provozu měnit.</p>
-<h3 id="strategie-rozesílání-zpráv-do-partition">Strategie rozesílání zpráv do partition</h3>
-<p>Při poslání zprávy do topicu ručně nastavujeme, do jaké partition se má zpráva poslat. To můžeme udělat několika různými způsoby:</p>
-<ul>
-<li>Natvrdo nastavíme, že server #1 bude posílat všechny zprávy do partition #1 atp.</li>
-<li>Budeme zprávy rozhazovat zcela náhodně.</li>
-<li>Budeme všechny partitiony poctivě střídat.</li>
-<li>Číslo partitiony určíme na základě nějakého atributu zprávy. Pokud má naše zpráva nějaké ID, můžeme například všechny zprávy s ID začínající na malé písmeno odeslat do partition #1 a ostatní do #2.</li>
-</ul>
-<p>Prvním cílem je, aby v každé partition bylo přibližně stejně zpráv. Druhým cílem může (ale nemusí) být, aby určité zprávy skončily ve stejné partition. Například bychom mohli chtít odstraňovat duplikované zprávy – pokud by dvě stejné zprávy skončily v různých partition, pak by se mohlo stát, že by je nakonec zpracovávaly konzumenti na různých serverech a duplikované zprávy by tak mohly projít. Proto se hodí postup, kdy zprávy do partition rozdělujeme na základě nějakého atributu. Například všechny zprávy, které mají stejné <em>impressionId</em> pošleme do stejné partition. To lze zařídit tak, že vypočteme číselnou hash <em>impressionId</em> a celočíselně vydělíme počtem partitions.</p>
-<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">function getPartitionNumber(message, numberOfPartitions) &#123;&#10;    return murmurhash(message.impressionId) % numberOfPartitions;&#10;&#125;</span><br></pre></td></tr></table></figure>
-<p>(Jako hashovací funkci jsme použili známou <a href="http://en.wikipedia.org/wiki/MurmurHash" target="_blank" rel="external">Murmurhash</a>.)</p>
-<h3 id="uspořádání-zpráv-v-rámci-partition">Uspořádání zpráv v rámci partition</h3>
-<p>Už jsme si řekli, že broker uchovává zprávy z jednoho topicu v takovém pořadí, v jakém tyto zprávy přišly. Jak do toho zapadá koncept partitionů? Jednoduše tak, že zprávy jsou uspořádané jen v rámci své partitiony. Není reálné nějakým způsobem synchronizovat pořadí zpráv, které se potenciálně nachází na fyzicky odlišných serverech.</p>
-<p>Pro příklad: mějme deset zpráv, které očíslujeme 1, 2, …, 10. Liché zprávy pošleme do partitony #1, sudé do partitony #2. Dopadlo by to takto:</p>
-<div class="figure">
-<img src="/images/kafka/orderingpartitions.svg" alt="">
-
-</div>
-<p>Nyní spustíme dva consumery, každý bude číst jednu partition. První consumer přečte zprávy 1, 3, 5, 7, 9 v tomto pořadí, druhý consumer přečte zprávy 2, 4, 6, 8, 10, v tomto pořadí:</p>
-<div class="figure">
-<img src="/images/kafka/orderingpartitions2.svg" alt="">
-
-</div>
-<p>Pokud ale budeme číst zprávy z obou partitionů jedním consumerem, bude čtení více méně nedeterministické. Chvíli se budou číst zprávy z jedné partition a další chvíli z druhé. Pořadí zpráv bude zachováno vždy jen v rámci jedné partitiony, takže zpráva 4 vždy přijde až po zprávě 2, ale zpráva 3 může přijít před 4. zprávou, ale může přijít i po 4. zprávě – protože je z jiné partitiony. Možné pořadí:</p>
-<div class="figure">
-<img src="/images/kafka/orderingpartitions3.svg" alt="">
-
-</div>
-<p>Pokud bychom chtěli použít jeden consumer, ale chtěli bychom zajistit, aby consumer přečetl zprávy zase v pořadí 1, 2, …, 10, museli bychom si doprogramovat logiku, která by během čtení tyto zprávy ještě zpátky seřazovala.</p>
-<h2 id="příště">Příště…</h2>
-<p>Příště se podíváme na to, jak přesně takový Kafka consumer funguje, jak zajistit, abychom každou zprávu přečetli právě jednou a jak zařídit, abychom mohli mít dva consumery, kteří čtou různě staré zprávy.</p>
-]]></content:encoded>
-      <comments>http://programio.havrlant.cz/kafka/#disqus_thread</comments>
     </item>
     
   </channel>
