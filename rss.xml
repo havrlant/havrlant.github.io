@@ -7,7 +7,7 @@
     <link>http://programio.havrlant.cz/</link>
     <atom:link href="/rss.xml" rel="self" type="application/rss+xml"/>
     <description></description>
-    <pubDate>Mon, 16 Nov 2015 18:10:55 GMT</pubDate>
+    <pubDate>Sat, 21 Nov 2015 09:28:18 GMT</pubDate>
     <generator>http://hexo.io/</generator>
     
     <item>
@@ -84,6 +84,7 @@
 <p>Jedním z pricnipů CQRS je oddělení Read (=Queries) a Write (=Commandy) částí systému, takže by nebylo dobré je míchat.</p>
 <h2 id="na-jaké-problémy-jsme-narazili">Na jaké problémy jsme narazili</h2>
 <p>…si povíme zase příště v dalším článku.</p>
+<p>A jestli vás už nebaví psát weby v PHP a chcete zkusit něco nového, <a href="http://www.ibillboard.com/cs/spolecnost/spolecnost/kariera/202-vyvojar-nodejs-javascript" target="_blank" rel="external">pojďte programovat k nám!</a></p>
 ]]></content:encoded>
       <comments>http://programio.havrlant.cz/architektura-event-sourcing/#disqus_thread</comments>
     </item>
