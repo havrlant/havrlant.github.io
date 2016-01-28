@@ -2,207 +2,218 @@
 <p>Nejprve si ujasněme, proč by to vůbec měl být problém a proč si nemůžeme uložit počet unikátních návštěv pro nějaký den a pak je jen jednoduše sečíst. Příklad:</p>
 <table>
 <thead>
-<tr>
-<th>Date</th>
-<th>Uniques</th>
+<tr class="header">
+<th align="left">Date</th>
+<th align="left">Uniques</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2014-12-24</td>
-<td>1000</td>
+<tr class="odd">
+<td align="left">2014-12-24</td>
+<td align="left">1000</td>
 </tr>
-<tr>
-<td>2014-12-25</td>
-<td>2000</td>
+<tr class="even">
+<td align="left">2014-12-25</td>
+<td align="left">2000</td>
 </tr>
 </tbody>
 </table>
-<p>Vidíme, že 24. jsme měli na webu 1000 unikátních návštěvníků a 25. jsme měli 2000, ale nemůžeme z toho odvodit, že jsme za oba dny měli na webu 3000 unikátních návštěvníků, protože někteří návštěvníci mohli přijít v obou dnech a my bychom je takto započítali dvakrát, což je chyba. </p>
-<p>Jak to řešit? Jeden ze způsobů je, že si do tabulky uložíme všechny návštěvy; vždy si uložíme datum a unikátní identifikátor uživatele. </p>
+<p>Vidíme, že 24. jsme měli na webu 1000 unikátních návštěvníků a 25. jsme měli 2000, ale nemůžeme z toho odvodit, že jsme za oba dny měli na webu 3000 unikátních návštěvníků, protože někteří návštěvníci mohli přijít v obou dnech a my bychom je takto započítali dvakrát, což je chyba.</p>
+<p>Jak to řešit? Jeden ze způsobů je, že si do tabulky uložíme všechny návštěvy; vždy si uložíme datum a unikátní identifikátor uživatele.</p>
 <table>
 <thead>
-<tr>
-<th>Date</th>
-<th>UUID</th>
+<tr class="header">
+<th align="left">Date</th>
+<th align="left">UUID</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2014-12-24</td>
-<td>2ff8c295</td>
+<tr class="odd">
+<td align="left">2014-12-24</td>
+<td align="left">2ff8c295</td>
 </tr>
-<tr>
-<td>2014-12-24</td>
-<td>7f127ff5</td>
+<tr class="even">
+<td align="left">2014-12-24</td>
+<td align="left">7f127ff5</td>
 </tr>
-<tr>
-<td>2014-12-24</td>
-<td>2ff8c295</td>
+<tr class="odd">
+<td align="left">2014-12-24</td>
+<td align="left">2ff8c295</td>
 </tr>
-<tr>
-<td>2014-12-24</td>
-<td>a809a39e</td>
+<tr class="even">
+<td align="left">2014-12-24</td>
+<td align="left">a809a39e</td>
 </tr>
-<tr>
-<td>…</td>
-<td>…</td>
+<tr class="odd">
+<td align="left">…</td>
+<td align="left">…</td>
 </tr>
-<tr>
-<td>2014-12-25</td>
-<td>c9fd54ed</td>
+<tr class="even">
+<td align="left">2014-12-25</td>
+<td align="left">c9fd54ed</td>
 </tr>
-<tr>
-<td>2014-12-25</td>
-<td>11b500ac</td>
+<tr class="odd">
+<td align="left">2014-12-25</td>
+<td align="left">11b500ac</td>
 </tr>
-<tr>
-<td>2014-12-25</td>
-<td>ba9e5c22</td>
+<tr class="even">
+<td align="left">2014-12-25</td>
+<td align="left">ba9e5c22</td>
 </tr>
-<tr>
-<td>2014-12-25</td>
-<td>2ff8c295</td>
+<tr class="odd">
+<td align="left">2014-12-25</td>
+<td align="left">2ff8c295</td>
 </tr>
 </tbody>
 </table>
-<p>Z takto uložených dat můžeme snadno vyfiltrovat řádky jen z těch dnů, které nás zajímají a pak spočítat počet unikátních hodnot v druhém sloupečku. Můžeme to spočítat přesně nebo můžeme použít HyperLogLog, to už záleží na nás. Problém je, že musíme mít uložené opravdu všechny unikátní identifikátory, což nemusí být úplně levná záležitost, protože se – na rozdíl třeba od data – nedají dost dobře komprimovat. </p>
-<p>A v tuto chvíli přichází na řadu HyperLogLog, který tento svízel snadno vyřeší. </p>
-<h2 id="Stručný_popis_HyperLogLogu">Stručný popis HyperLogLogu</h2><p>V rychlosti si zopakujeme základní kostru algoritmu <a href="/hyperloglog/">HyperLogLog</a>. Pokud si to plusminus pamatujete, přeskočte k další kapitole, pokud vůbec nevíte, o čem je řeč, začněte <a href="/loglog">prvním článkem</a>.</p>
-<p>1) Na vstupu máme nějakou multimnožinu <code>S</code> (množina, ve které se mohou některé hodnoty opakovat).<br>2) Pro každou hodnotu <code>x</code> z <code>S</code> spočítáme <code>n</code>-bitový hash <code>h(x)</code>. Tutu hash dále rozdělíme: označme <code>hlast<sub>k</sub>(x)</code> posledních <code>k</code> bitů hashe <code>h(x)</code> a <code>hfirst<sub>n-k</sub>(x)</code> prvních <code>n-k</code> bitů hashe <code>h(x)</code> (tj. odstraníme z hashe posledních <code>k</code> bitů).<br>3) Rozdělíme prvky <code>S</code> do <code>2<sup>k</sup></code> disjunktních multimnožin, kde <code>k</code> je vstupní parametr algoritmu. Prvek <code>x</code> bude v multimnožině <code>S<sub>i</sub></code> právě tehdy, když <code>hlast<sub>k</sub>(x) = i</code>.<br>4) Pro každý prvek <code>x</code> spočítáme délku nulového suffixu hashe <code>hfirst<sub>n-k</sub>(x)</code>. Tuto hodnotu označíme jako <code>trailing_zeroes(x)</code>.<br>5) Označme <code>m<sub>i</sub></code> maximální hodnotu funkce <code>trailing_zeroes(x)</code> pro prvky <code>x</code> z multimnožiny <code>S<sub>i</sub></code>.<br>6) Do pole <code>M</code> si na index <code>i</code> zapíšeme hodnotu <code>m<sub>i</sub>+1</code>. Tj. pole <code>M</code> představuje vektor, kde na indexu <code>i</code> je maximální délka nulového suffixu plus jedna ze všech hashů ve skupině <code>S<sub>i</sub></code>.</p>
-<h2 id="Sjednocení_vektorů_HyperLogLogu">Sjednocení vektorů HyperLogLogu</h2><p>Důležitý je vektor <code>M</code>, ve kterém jsou uloženy maximální délky nulových suffixů. Pokud ho známe, dokážeme z něj vypočítat odhad kardinality původní multimnožiny <code>S</code>. Ať už pomocí algoritmu <a href="/loglog">LogLog</a>, <a href="/hyperloglog">HyperLogLog</a> nebo nějaké vylepšené verze HyperLogLogu. </p>
-<p>Otázka zní: nemohli bychom do tabulky místo počtu unikátních návštěv uložit vektor <code>M</code> pro daný den a když bychom chtěli vypočítat počet unikátů pro více dnů, tak jen tyto vektory nějak sjednotit a vypočítat odhad? Asi není úplně velké překvapení, že přesně to lze udělat. A jde to udělat velmi snadno! </p>
+<p>Z takto uložených dat můžeme snadno vyfiltrovat řádky jen z těch dnů, které nás zajímají a pak spočítat počet unikátních hodnot v druhém sloupečku. Můžeme to spočítat přesně nebo můžeme použít HyperLogLog, to už záleží na nás. Problém je, že musíme mít uložené opravdu všechny unikátní identifikátory, což nemusí být úplně levná záležitost, protože se – na rozdíl třeba od data – nedají dost dobře komprimovat.</p>
+<p>A v tuto chvíli přichází na řadu HyperLogLog, který tento svízel snadno vyřeší.</p>
+<h2 id="stručný-popis-hyperloglogu">Stručný popis HyperLogLogu</h2>
+<p>V rychlosti si zopakujeme základní kostru algoritmu <a href="/hyperloglog/">HyperLogLog</a>. Pokud si to plusminus pamatujete, přeskočte k další kapitole, pokud vůbec nevíte, o čem je řeč, začněte <a href="/loglog">prvním článkem</a>.</p>
+<ol style="list-style-type: decimal">
+<li>Na vstupu máme nějakou multimnožinu <code>S</code> (množina, ve které se mohou některé hodnoty opakovat).</li>
+<li>Pro každou hodnotu <code>x</code> z <code>S</code> spočítáme <code>n</code>-bitový hash <code>h(x)</code>. Tutu hash dále rozdělíme: označme <code>hlast<sub>k</sub>(x)</code> posledních <code>k</code> bitů hashe <code>h(x)</code> a <code>hfirst<sub>n-k</sub>(x)</code> prvních <code>n-k</code> bitů hashe <code>h(x)</code> (tj. odstraníme z hashe posledních <code>k</code> bitů).</li>
+<li>Rozdělíme prvky <code>S</code> do <code>2<sup>k</sup></code> disjunktních multimnožin, kde <code>k</code> je vstupní parametr algoritmu. Prvek <code>x</code> bude v multimnožině <code>S<sub>i</sub></code> právě tehdy, když <code>hlast<sub>k</sub>(x) = i</code>.</li>
+<li>Pro každý prvek <code>x</code> spočítáme délku nulového suffixu hashe <code>hfirst<sub>n-k</sub>(x)</code>. Tuto hodnotu označíme jako <code>trailing_zeroes(x)</code>.</li>
+<li>Označme <code>m<sub>i</sub></code> maximální hodnotu funkce <code>trailing_zeroes(x)</code> pro prvky <code>x</code> z multimnožiny <code>S<sub>i</sub></code>.</li>
+<li>Do pole <code>M</code> si na index <code>i</code> zapíšeme hodnotu <code>m<sub>i</sub>+1</code>. Tj. pole <code>M</code> představuje vektor, kde na indexu <code>i</code> je maximální délka nulového suffixu plus jedna ze všech hashů ve skupině <code>S<sub>i</sub></code>.</li>
+</ol>
+<h2 id="sjednocení-vektorů-hyperloglogu">Sjednocení vektorů HyperLogLogu</h2>
+<p>Důležitý je vektor <code>M</code>, ve kterém jsou uloženy maximální délky nulových suffixů. Pokud ho známe, dokážeme z něj vypočítat odhad kardinality původní multimnožiny <code>S</code>. Ať už pomocí algoritmu <a href="/loglog">LogLog</a>, <a href="/hyperloglog">HyperLogLog</a> nebo nějaké vylepšené verze HyperLogLogu.</p>
+<p>Otázka zní: nemohli bychom do tabulky místo počtu unikátních návštěv uložit vektor <code>M</code> pro daný den a když bychom chtěli vypočítat počet unikátů pro více dnů, tak jen tyto vektory nějak sjednotit a vypočítat odhad? Asi není úplně velké překvapení, že přesně to lze udělat. A jde to udělat velmi snadno!</p>
 <p>Mějme dvě multimnožiny <code>S1</code>, <code>S2</code> a jejich HyperLogLog vektory <code>M1</code>, <code>M2</code>. Sjednocením těchto vektorů získáme nový vektor <code>M</code>, který získáme ho takto:</p>
-<pre><code>M<span class="string">[i]</span> = max(M1<span class="string">[i]</span>, M2<span class="string">[i]</span>)
-</code></pre><p>Jednoduchý příklad: nechť <code>M1=[5, 7, 6, 7, 8, 5, 5, 4]</code> a <code>M2=[6, 7, 9, 2, 5, 5, 5, 7]</code>. Pak dostaneme:</p>
+<pre><code>M[i] = max(M1[i], M2[i])</code></pre>
+<p>Jednoduchý příklad: nechť <code>M1=[5, 7, 6, 7, 8, 5, 5, 4]</code> a <code>M2=[6, 7, 9, 2, 5, 5, 5, 7]</code>. Pak dostaneme:</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">M1=[5, 7, 6, 7, 8, 5, 5, 4]&#10;M2=[6, 7, 9, 2, 5, 5, 5, 7]&#10;---------------------------&#10; M=[6, 7, 9, 7, 8, 5, 5, 7]</span><br></pre></td></tr></table></figure>
-<p>Tento nový vektor <code>M</code> můžeme použít pro výpočet odhadu počtu unikátních hodnot multimnožiny <code>S1 ∪ S2</code>. </p>
-<p>Proč to funguje? Musí platit, že oba vektory vznikly se stejným parametrem <code>k</code> – což poznáme tak, že ty vektory jsou stejně dlouhé. Vraťme se k předchozímu příkladu a podívejme se na poslední sloupeček (4 a 7). Tato čísla reprezentují maximální délku nulového suffixu zvýšenou o jedna ve skupině 7 (je to 8. sloupec, ale indexujeme od nuly). </p>
+<p>Tento nový vektor <code>M</code> můžeme použít pro výpočet odhadu počtu unikátních hodnot multimnožiny <code>S1 ∪ S2</code>.</p>
+<p>Proč to funguje? Musí platit, že oba vektory vznikly se stejným parametrem <code>k</code> – což poznáme tak, že ty vektory jsou stejně dlouhé. Vraťme se k předchozímu příkladu a podívejme se na poslední sloupeček (4 a 7). Tato čísla reprezentují maximální délku nulového suffixu zvýšenou o jedna ve skupině 7 (je to 8. sloupec, ale indexujeme od nuly).</p>
 <p>To znamená, že v multimnožině <code>S1</code> existuje hodnota, jejíž hash má poslední tři bity rovny 111 (=7 v desítkové soustavě) a suffix má tři nuly. Může jít například o hash <code>011001000111</code>. V multimnožině <code>S2</code> zase musí existovat hodnota, jejíž hash končí na 111 a suffix má šest nul, například hash <code>111000000111</code>.</p>
-<p>Počítáme-li kardinalitu <code>S1 ∪ S2</code>, pak v sedmé skupině budou hashe <code>011001000111</code> a <code>110000000111</code> (a všechny ostatní hashe z dané skupiny – ale ty už budou mít vždy kratší nulový suffix než jeden z těchto dvou hashů, takže nás nezajímají). Nejdelší nulový suffix musí být roven nejdelšímu nulovému suffixu buď z multimnožiny <code>S1</code> nebo <code>S2</code>. V tomto případě to bude z <code>S2</code>. Při počítání <code>M1 ∪ M2</code> tak stačí vzít maximum z obou odpovídajících hodnot. </p>
-<h2 id="Agregujeme!">Agregujeme!</h2><p>A jak tuto krásnou vlastnost využijeme? Nebudeme do tabulky ukládat všechny unikátní identifikátory, ani nebudeme ukládat pouze výslednou kardinalitu. Pro každý den si uložíme vypočítaný HyperLogLog vektor <code>M</code>:</p>
+<p>Počítáme-li kardinalitu <code>S1 ∪ S2</code>, pak v sedmé skupině budou hashe <code>011001000111</code> a <code>110000000111</code> (a všechny ostatní hashe z dané skupiny – ale ty už budou mít vždy kratší nulový suffix než jeden z těchto dvou hashů, takže nás nezajímají). Nejdelší nulový suffix musí být roven nejdelšímu nulovému suffixu buď z multimnožiny <code>S1</code> nebo <code>S2</code>. V tomto případě to bude z <code>S2</code>. Při počítání <code>M1 ∪ M2</code> tak stačí vzít maximum z obou odpovídajících hodnot.</p>
+<h2 id="agregujeme">Agregujeme!</h2>
+<p>A jak tuto krásnou vlastnost využijeme? Nebudeme do tabulky ukládat všechny unikátní identifikátory, ani nebudeme ukládat pouze výslednou kardinalitu. Pro každý den si uložíme vypočítaný HyperLogLog vektor <code>M</code>:</p>
 <table>
 <thead>
-<tr>
-<th>Date</th>
-<th>HyperLogLog Vector</th>
+<tr class="header">
+<th align="left">Date</th>
+<th align="left">HyperLogLog Vector</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2014-12-24</td>
-<td>[5, 7, 6, 7, 8, 5, 5, 4]</td>
+<tr class="odd">
+<td align="left">2014-12-24</td>
+<td align="left">[5, 7, 6, 7, 8, 5, 5, 4]</td>
 </tr>
-<tr>
-<td>2014-12-25</td>
-<td>[6, 7, 9, 2, 5, 5, 5, 7]</td>
+<tr class="even">
+<td align="left">2014-12-25</td>
+<td align="left">[6, 7, 9, 2, 5, 5, 5, 7]</td>
 </tr>
-<tr>
-<td>2014-12-26</td>
-<td>[6, 9, 5, 5, 5, 9, 9, 7]</td>
+<tr class="odd">
+<td align="left">2014-12-26</td>
+<td align="left">[6, 9, 5, 5, 5, 9, 9, 7]</td>
 </tr>
-<tr>
-<td>2014-12-27</td>
-<td>[5, 7, 8, 8, 7, 4, 6, 9]</td>
+<tr class="even">
+<td align="left">2014-12-27</td>
+<td align="left">[5, 7, 8, 8, 7, 4, 6, 9]</td>
 </tr>
-<tr>
-<td>2014-12-28</td>
-<td>[5, 9, 7, 7, 5, 4, 7, 5]</td>
+<tr class="odd">
+<td align="left">2014-12-28</td>
+<td align="left">[5, 9, 7, 7, 5, 4, 7, 5]</td>
 </tr>
-<tr>
-<td>2014-12-29</td>
-<td>[7, 8, 4, 9, 8, 4, 4, 9]</td>
+<tr class="even">
+<td align="left">2014-12-29</td>
+<td align="left">[7, 8, 4, 9, 8, 4, 4, 9]</td>
 </tr>
-<tr>
-<td>2014-12-30</td>
-<td>[9, 7, 9, 7, 7, 6, 5, 4]</td>
+<tr class="odd">
+<td align="left">2014-12-30</td>
+<td align="left">[9, 7, 9, 7, 7, 6, 5, 4]</td>
 </tr>
-<tr>
-<td>2014-12-31</td>
-<td>[4, 6, 4, 5, 6, 8, 5, 8]</td>
+<tr class="even">
+<td align="left">2014-12-31</td>
+<td align="left">[4, 6, 4, 5, 6, 8, 5, 8]</td>
 </tr>
-<tr>
-<td>…</td>
-<td>…</td>
+<tr class="odd">
+<td align="left">…</td>
+<td align="left">…</td>
 </tr>
 </tbody>
 </table>
 <p>Pokud budeme chtít vypočítat počet unikátních návštěv na Štědrý den, vytáheneme si daný vektor <code>[5, 7, 6, 7, 8, 5, 5, 4]</code> a dopočítáme odhad. Pokud chceme znát počet unikátů od 24. do 26., vezmeme tři vektory, sjednotíme je a dopočítáme:</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[5, 7, 6, 7, 8, 5, 5, 4]&#10;[6, 7, 9, 2, 5, 5, 5, 7]&#10;[6, 9, 5, 5, 5, 9, 9, 7]&#10;------------------------&#10;[6, 9, 9, 7, 8, 9, 9, 7]</span><br></pre></td></tr></table></figure>
-<p>Identicky pro všechny ostatní kombinace. </p>
+<p>Identicky pro všechny ostatní kombinace.</p>
 <p>Můžeme pochopitelně přidávat další dimenze. Pokud potřebujeme znát počet unikátních uživatelů z daného dne, ale jen ty, kteří mají Chrome, přidáme sloupec:</p>
 <table>
 <thead>
-<tr>
-<th>Date</th>
-<th>Browser</th>
-<th>HyperLogLog Vector</th>
+<tr class="header">
+<th align="left">Date</th>
+<th align="left">Browser</th>
+<th align="left">HyperLogLog Vector</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2014-12-24</td>
-<td>FireFox</td>
-<td>[5, 4, 5, 5, 3, 3, 5, 5]</td>
+<tr class="odd">
+<td align="left">2014-12-24</td>
+<td align="left">FireFox</td>
+<td align="left">[5, 4, 5, 5, 3, 3, 5, 5]</td>
 </tr>
-<tr>
-<td>2014-12-24</td>
-<td>Chrome</td>
-<td>[3, 3, 3, 5, 2, 5, 3, 2]</td>
+<tr class="even">
+<td align="left">2014-12-24</td>
+<td align="left">Chrome</td>
+<td align="left">[3, 3, 3, 5, 2, 5, 3, 2]</td>
 </tr>
-<tr>
-<td>2014-12-24</td>
-<td>IE</td>
-<td>[4, 2, 2, 5, 2, 4, 4, 2]</td>
+<tr class="odd">
+<td align="left">2014-12-24</td>
+<td align="left">IE</td>
+<td align="left">[4, 2, 2, 5, 2, 4, 4, 2]</td>
 </tr>
-<tr>
-<td>2014-12-24</td>
-<td>Safari</td>
-<td>[2, 1, 4, 1, 3, 2, 3, 4]</td>
+<tr class="even">
+<td align="left">2014-12-24</td>
+<td align="left">Safari</td>
+<td align="left">[2, 1, 4, 1, 3, 2, 3, 4]</td>
 </tr>
-<tr>
-<td>2014-12-24</td>
-<td>Opera</td>
-<td>[0, 0, 0, 0, 0, 0, 0, 0]</td>
+<tr class="odd">
+<td align="left">2014-12-24</td>
+<td align="left">Opera</td>
+<td align="left">[0, 0, 0, 0, 0, 0, 0, 0]</td>
 </tr>
-<tr>
-<td>2014-12-25</td>
-<td>FireFox</td>
-<td>[3, 5, 5, 2, 3, 3, 4, 4]</td>
+<tr class="even">
+<td align="left">2014-12-25</td>
+<td align="left">FireFox</td>
+<td align="left">[3, 5, 5, 2, 3, 3, 4, 4]</td>
 </tr>
-<tr>
-<td>2014-12-25</td>
-<td>Chrome</td>
-<td>[3, 3, 2, 4, 4, 5, 5, 3]</td>
+<tr class="odd">
+<td align="left">2014-12-25</td>
+<td align="left">Chrome</td>
+<td align="left">[3, 3, 2, 4, 4, 5, 5, 3]</td>
 </tr>
-<tr>
-<td>2014-12-25</td>
-<td>IE</td>
-<td>[5, 5, 5, 2, 3, 4, 4, 5]</td>
+<tr class="even">
+<td align="left">2014-12-25</td>
+<td align="left">IE</td>
+<td align="left">[5, 5, 5, 2, 3, 4, 4, 5]</td>
 </tr>
-<tr>
-<td>2014-12-25</td>
-<td>Safari</td>
-<td>[4, 1, 3, 4, 3, 1, 3, 3]</td>
+<tr class="odd">
+<td align="left">2014-12-25</td>
+<td align="left">Safari</td>
+<td align="left">[4, 1, 3, 4, 3, 1, 3, 3]</td>
 </tr>
-<tr>
-<td>2014-12-25</td>
-<td>Opera</td>
-<td>[0, 0, 0, 0, 0, 1, 0, 0]</td>
+<tr class="even">
+<td align="left">2014-12-25</td>
+<td align="left">Opera</td>
+<td align="left">[0, 0, 0, 0, 0, 1, 0, 0]</td>
 </tr>
-<tr>
-<td>…</td>
-<td>…</td>
-<td>…</td>
+<tr class="odd">
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
 </tr>
 </tbody>
 </table>
-<p>Výhodou budou detailnější statistiky, nevýhodou bude to, že když budeme chtít znát počet unikátů za jeden den bez dalších omezení, stejně budeme muset sjednocovat několik vektorů. Čím více dimenzí budeme mít, tím více vektorů budeme muset sjednocovat, protože tím více řádků v tabulce bude. </p>
-<p>To může být problém, protože i když jsme si minule uváděli, že datová náročnost HyperLogLogu je nízká, pro <code>k=10</code> je to 768 bajtů, s přibývajícími dimenzemi roste počet kombinací, které mohou nastat a velmi rychle roste počet řádků a tedy i počet HLL vektorů, které musíme ukládat. Naštěstí platí, že čím více dimenzí, tím menší počet unikátních uživatelů, kteří tuto specifickou kombinaci splňují. </p>
-<p>Už v <a href="/hyperloglog">předchozím článku</a> jsem uváděl několik tipů, jak snížit velikost HyperLogLog vektoru. Pokud si s tím hodně pohrajete, bude HLL vektor přiměřeně malý, pro malé multimnožině klidně i několik málo desítek bajtů. Ve výsledku je to docela OK a prakticky vždy je to méně náročné, než poctivě ukládat všechna IDéčka. </p>
-<h2 id="Průnik_HyperLogLogu">Průnik HyperLogLogu</h2><p>Ještě pár slov o průniku. Protože máme definováno sjednocení HLL vektorů, zdálo by se, že průnik je podobně jednoduchý, jen se místo maxima vezme minimum. A ono prd. Průnik se z různých důvodů vypočítat moc dobře nedá. Postupy na to existují, ale obyčejně mají příliš silné předpoklady (například, že obě multimnožiny jsou přibližně stejně velké) na to, aby ten odhad byl nějak použitelný a pokud tyto předpoklady nejsou splněné, tak algoritmus vrací totální babišnumera. </p>
-<p>Má rada na závěr pro ty, kteří opravdu dočetli až sem tudíž zní: používejte sjednocení HLL vektorů. Nepoužívejte průnik HLL vektorů. </p>
-<div class="relatedBox"><div class="relatedArticlesBox"><h2 id="relatedArticles">Související články:</h2><ol><li><a href="/linear-counting/">Linear Counting: Jak odhadnout počet unikátních hodnot</a></li><li><a href="/min-value/">Min Value: Jak odhadnout počet unikátních hodnot</a></li><li><a href="/loglog/">LogLog: Jak odhadnout počet unikátních hodnot</a></li><li><a href="/hyperloglog/">HyperLogLog: Jak odhadnout počet unikátních hodnot</a></li></ol></div></div><div class="articleTags"><strong><a href="/tags/algoritmy">#algoritmy</a></strong>, <strong><a href="/tags/hyperloglog">#hyperloglog</a></strong></div></div></article><div style="text-align: right"><div class="fb-like" data-layout="button_count" data-action="like" data-show-faces="true" data-share="true" style="margin-top: 10px; height: 30px"></div></div><div class="comments"><div id="disqus_thread"><noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div></div><footer class="post__foot u-cf"><ul class="post__tag u-fl"><li class="post__tag__item"><a href="/tags/algoritmy/" class="post__tag__link">algoritmy</a></li><li class="post__tag__item"><a href="/tags/hyperloglog/" class="post__tag__link">hyperloglog</a></li></ul><a href="/sjednoceni-hyperloglogu/#disqus_thread" class="post__foot-link u-fr">Komentáře</a></footer></main><footer class="foot"><div class="foot-copy u-fl"><a href="/">Programio</a> píše <a href="http://www.havrlant.cz/">Lukáš Havrlant</a></div><menu class="page-menu u-fr"><li class="page-menu__item"><a title="Previous" href="/lambda-architecture/" class="page-menu__link icon-arrow-left"></a></li><li class="page-menu__item"><a title="Next" href="/jak-vytvarim-interni-odkazy/" class="page-menu__link icon-arrow-right"></a></li></menu></footer><script>(function(h,g,l,k,j,i){j=h.createElement(g),i=h.getElementsByTagName(g)[0],
+<p>Výhodou budou detailnější statistiky, nevýhodou bude to, že když budeme chtít znát počet unikátů za jeden den bez dalších omezení, stejně budeme muset sjednocovat několik vektorů. Čím více dimenzí budeme mít, tím více vektorů budeme muset sjednocovat, protože tím více řádků v tabulce bude.</p>
+<p>To může být problém, protože i když jsme si minule uváděli, že datová náročnost HyperLogLogu je nízká, pro <code>k=10</code> je to 768 bajtů, s přibývajícími dimenzemi roste počet kombinací, které mohou nastat a velmi rychle roste počet řádků a tedy i počet HLL vektorů, které musíme ukládat. Naštěstí platí, že čím více dimenzí, tím menší počet unikátních uživatelů, kteří tuto specifickou kombinaci splňují.</p>
+<p>Už v <a href="/hyperloglog">předchozím článku</a> jsem uváděl několik tipů, jak snížit velikost HyperLogLog vektoru. Pokud si s tím hodně pohrajete, bude HLL vektor přiměřeně malý, pro malé multimnožině klidně i několik málo desítek bajtů. Ve výsledku je to docela OK a prakticky vždy je to méně náročné, než poctivě ukládat všechna IDéčka.</p>
+<h2 id="průnik-hyperloglogu">Průnik HyperLogLogu</h2>
+<p>Ještě pár slov o průniku. Protože máme definováno sjednocení HLL vektorů, zdálo by se, že průnik je podobně jednoduchý, jen se místo maxima vezme minimum. A ono prd. Průnik se z různých důvodů vypočítat moc dobře nedá. Postupy na to existují, ale obyčejně mají příliš silné předpoklady (například, že obě multimnožiny jsou přibližně stejně velké) na to, aby ten odhad byl nějak použitelný a pokud tyto předpoklady nejsou splněné, tak algoritmus vrací totální babišnumera.</p>
+<p>Má rada na závěr pro ty, kteří opravdu dočetli až sem tudíž zní: používejte sjednocení HLL vektorů. Nepoužívejte průnik HLL vektorů.</p>
+<p>A jestli vás článek opravdu zaujal, <a href="http://www.ibillboard.com/cs/spolecnost/spolecnost/kariera/202-vyvojar-nodejs-javascript">tak pojďte pracovat k nám do firmy!</a> Podobných problémů řešíme mraky.</p><div class="relatedBox"><div class="relatedArticlesBox"><h2 id="relatedArticles">Související články:</h2><ol><li><a href="/linear-counting/">Linear Counting: Jak odhadnout počet unikátních hodnot</a></li><li><a href="/min-value/">Min Value: Jak odhadnout počet unikátních hodnot</a></li><li><a href="/loglog/">LogLog: Jak odhadnout počet unikátních hodnot</a></li><li><a href="/hyperloglog/">HyperLogLog: Jak odhadnout počet unikátních hodnot</a></li></ol></div></div><div class="articleTags"><strong><a href="/tags/algoritmy">#algoritmy</a></strong>, <strong><a href="/tags/hyperloglog">#hyperloglog</a></strong></div></div></article><div style="text-align: right"><div class="fb-like" data-layout="button_count" data-action="like" data-show-faces="true" data-share="true" style="margin-top: 10px; height: 30px"></div></div><div class="comments"><div id="disqus_thread"><noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div></div><footer class="post__foot u-cf"><ul class="post__tag u-fl"><li class="post__tag__item"><a href="/tags/algoritmy/" class="post__tag__link">algoritmy</a></li><li class="post__tag__item"><a href="/tags/hyperloglog/" class="post__tag__link">hyperloglog</a></li></ul><a href="/sjednoceni-hyperloglogu/#disqus_thread" class="post__foot-link u-fr">Komentáře</a></footer></main><footer class="foot"><div class="foot-copy u-fl"><a href="/">Programio</a> píše <a href="http://www.havrlant.cz/">Lukáš Havrlant</a></div><menu class="page-menu u-fr"><li class="page-menu__item"><a title="Previous" href="/lambda-architecture/" class="page-menu__link icon-arrow-left"></a></li><li class="page-menu__item"><a title="Next" href="/jak-vytvarim-interni-odkazy/" class="page-menu__link icon-arrow-right"></a></li></menu></footer><script>(function(h,g,l,k,j,i){j=h.createElement(g),i=h.getElementsByTagName(g)[0],
 j.src="//"+l+".disqus.com/"+k+".js",i.parentNode.insertBefore(j,i)})
 (document,"script","programio","embed");
 </script><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=

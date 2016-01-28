@@ -1,28 +1,29 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="alternative" href="/atom.xml" title="Programio" type="application/atom+xml"><link rel="icon" href="/images/favicon.png"><title>Jak Druid.io agreguje data - Programio</title><link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro"><link rel="stylesheet" href="/css/main.css" type="text/css"><!--[if lt IE 9]><script>(function(a,b){a="abbr article aside audio bdi canvas data datalist details dialog figcaption figure footer header hgroup main mark meter nav output progress section summary template time video".split(" ");for(b=a.length-1;b>=0;b--)document.createElement(a[b])})()</script><![endif]--></head><body><header class="head"><h1 class="head-title u-fl"> <a href="/">Programio</a></h1><nav class="head-nav u-fr"><ul class="head-nav__list"><li class="head-nav__item"><a href="/" class="head-nav__link">Domů</a></li><li class="head-nav__item"><a href="/archives" class="head-nav__link">Archiv</a></li><li class="head-nav__item"><a href="http://www.havrlant.cz/" class="head-nav__link">O autorovi</a></li><li class="head-nav__item"><a href="/rss.xml" class="head-nav__link">RSS</a></li></ul></nav></header><main class="main"><article class="post"><header class="post__head"><time datetime="2015-06-02T18:38:39.000Z" class="post__time">2. 6. 2015</time><h1 class="post__title"><a href="/druid-io-ingest/">Jak Druid.io agreguje data</a></h1></header><div class="post__main echo"><p>Z <a href="/druid-io-architektura">minulého dílu</a> víme, že <a href="http://druid.io/" target="_blank" rel="external">Druid</a> typicky čte zprávy z nějakého messaging systému, tvoří segmenty a tyto segmenty poté proplouvají různými částmi systému. Dnes se podíváme na to, jak vypadají data v jednotlivých segmentech. </p>
-<h2 id="Agregujeme">Agregujeme</h2><p>Druid je sloupcová databáze, pro ilustraci si můžeme zpracovaná data zobrazit jako tabulku. Pokud bychom Druidu poslali tyto dvě zprávy</p>
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="alternative" href="/atom.xml" title="Programio" type="application/atom+xml"><link rel="icon" href="/images/favicon.png"><title>Jak Druid.io agreguje data - Programio</title><link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro"><link rel="stylesheet" href="/css/main.css" type="text/css"><!--[if lt IE 9]><script>(function(a,b){a="abbr article aside audio bdi canvas data datalist details dialog figcaption figure footer header hgroup main mark meter nav output progress section summary template time video".split(" ");for(b=a.length-1;b>=0;b--)document.createElement(a[b])})()</script><![endif]--></head><body><header class="head"><h1 class="head-title u-fl"> <a href="/">Programio</a></h1><nav class="head-nav u-fr"><ul class="head-nav__list"><li class="head-nav__item"><a href="/" class="head-nav__link">Domů</a></li><li class="head-nav__item"><a href="/archives" class="head-nav__link">Archiv</a></li><li class="head-nav__item"><a href="http://www.havrlant.cz/" class="head-nav__link">O autorovi</a></li><li class="head-nav__item"><a href="/rss.xml" class="head-nav__link">RSS</a></li></ul></nav></header><main class="main"><article class="post"><header class="post__head"><time datetime="2015-06-02T18:38:39.000Z" class="post__time">2. 6. 2015</time><h1 class="post__title"><a href="/druid-io-ingest/">Jak Druid.io agreguje data</a></h1></header><div class="post__main echo"><p>Z <a href="/druid-io-architektura">minulého dílu</a> víme, že <a href="http://druid.io/" target="_blank" rel="external">Druid</a> typicky čte zprávy z nějakého messaging systému, tvoří segmenty a tyto segmenty poté proplouvají různými částmi systému. Dnes se podíváme na to, jak vypadají data v jednotlivých segmentech.</p>
+<h2 id="agregujeme">Agregujeme</h2>
+<p>Druid je sloupcová databáze, pro ilustraci si můžeme zpracovaná data zobrazit jako tabulku. Pokud bychom Druidu poslali tyto dvě zprávy</p>
 <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    "<span class="attribute">timestamp</span>": <span class="value"><span class="string">"2015-03-17T20:40:00Z"</span></span>,</span><br><span class="line">    "<span class="attribute">campaignId</span>": <span class="value"><span class="string">"336"</span></span>,</span><br><span class="line">    "<span class="attribute">web</span>": <span class="value"><span class="string">"csfd.cz"</span></span>,</span><br><span class="line">    "<span class="attribute">browser</span>": <span class="value"><span class="string">"Chrome"</span></span><br><span class="line"></span>&#125;</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">    "<span class="attribute">timestamp</span>": <span class="value"><span class="string">"2015-03-17T20:40:02Z"</span></span>,</span><br><span class="line">    "<span class="attribute">campaignId</span>": <span class="value"><span class="string">"1344"</span></span>,</span><br><span class="line">    "<span class="attribute">web</span>": <span class="value"><span class="string">"idnes.cz"</span></span>,</span><br><span class="line">    "<span class="attribute">browser</span>": <span class="value"><span class="string">"Chrome"</span></span><br><span class="line"></span>&#125;</span><br></pre></td></tr></table></figure>
 <p>v Druidu by se poskládala tato tabulka:</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-17T20:40:00Z</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="odd">
+<td align="left">2015-03-17T20:40:00Z</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
-<tr>
-<td>2015-03-17T20:40:02Z</td>
-<td>1344</td>
-<td>idnes.cz</td>
-<td>Chrome</td>
+<tr class="even">
+<td align="left">2015-03-17T20:40:02Z</td>
+<td align="left">1344</td>
+<td align="left">idnes.cz</td>
+<td align="left">Chrome</td>
 </tr>
 </tbody>
 </table>
@@ -31,415 +32,419 @@
 <p>…protože ta se od úplně první zprávy liší pouze v čase (20:40:<strong>00</strong> vs 20:40:<strong>27</strong>), ostatní vlastnosti jsou stejné. Jsou to dvě stejné události, které pouze nastaly v jiný čas. Druid by samozřejmě mohl tuto zprávu uložit jako třetí řádek do tabulky</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-17T20:40:<strong>00</strong>Z</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="odd">
+<td align="left">2015-03-17T20:40:<strong>00</strong>Z</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
-<tr>
-<td>2015-03-17T20:40:02Z</td>
-<td>1344</td>
-<td>idnes.cz</td>
-<td>Chrome</td>
+<tr class="even">
+<td align="left">2015-03-17T20:40:02Z</td>
+<td align="left">1344</td>
+<td align="left">idnes.cz</td>
+<td align="left">Chrome</td>
 </tr>
-<tr>
-<td>2015-03-17T20:40:<strong>27</strong>Z</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="odd">
+<td align="left">2015-03-17T20:40:<strong>27</strong>Z</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
 </tbody>
 </table>
 <p>…ale efektivnější bude, když provede <em>agregaci</em> a jen si u prvního řádku uloží, že tato událost nastala dvakrát:</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
-<th>impressions</th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+<th align="left">impressions</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-17T20:00:00</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>2</td>
+<tr class="odd">
+<td align="left">2015-03-17T20:00:00</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">2</td>
 </tr>
-<tr>
-<td>2015-03-17T20:00:00</td>
-<td>1344</td>
-<td>idnes.cz</td>
-<td>Chrome</td>
-<td>1</td>
+<tr class="even">
+<td align="left">2015-03-17T20:00:00</td>
+<td align="left">1344</td>
+<td align="left">idnes.cz</td>
+<td align="left">Chrome</td>
+<td align="left">1</td>
 </tr>
 </tbody>
 </table>
-<p>Tyto tabulky reprezentují stejná data, u druhé jsme pouze ztratili informaci o tom, kdy která událost přesně nastala. Všimněte si, že ve druhé tabulce už máme v timestampu pouze hodinu, bez přesného času. První řádek tabulky říká, že v čase 20:00:00 až 20:59:59 nastaly pro kampaň 336 na ČSFD dvě imprese. </p>
-<p>Druid při agregaci postupuje tak, že porovnává hodnoty ve všech sloupcích a pokud se zprávy liší pouze v čase, spojí tyto zprávy do jedné a za každou zprávu inkrementuje sloupec <em>impressions</em>. Název nově vzniklého sloupce specifikujeme ve specFilu: </p>
+<p>Tyto tabulky reprezentují stejná data, u druhé jsme pouze ztratili informaci o tom, kdy která událost přesně nastala. Všimněte si, že ve druhé tabulce už máme v timestampu pouze hodinu, bez přesného času. První řádek tabulky říká, že v čase 20:00:00 až 20:59:59 nastaly pro kampaň 336 na ČSFD dvě imprese.</p>
+<p>Druid při agregaci postupuje tak, že porovnává hodnoty ve všech sloupcích a pokud se zprávy liší pouze v čase, spojí tyto zprávy do jedné a za každou zprávu inkrementuje sloupec <em>impressions</em>. Název nově vzniklého sloupce specifikujeme ve specFilu:</p>
 <figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">"aggregators": [</span><br><span class="line">    &#123;</span><br><span class="line">        "type": "count",</span><br><span class="line">        "name": "impressions" </span><br><span class="line">    &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
-<p>Tímto vytvoříme agregátor <code>count</code>, který se bude ukládat do sloupečku <em>impressions</em>. Druid zná tři druhy sloupců: </p>
+<p>Tímto vytvoříme agregátor <code>count</code>, který se bude ukládat do sloupečku <em>impressions</em>. Druid zná tři druhy sloupců:</p>
 <ul>
 <li><strong>čas</strong> – reprezentuje, pro kterou hodinu jsou data platná. V příkladu jde o sloupec “timestamp”.</li>
-<li><strong>dimenze</strong> – to jsou naše „syrová“ data, jsou to sloupce <code>campaignID</code>,  <code>web</code> a <code>browser</code>. </li>
+<li><strong>dimenze</strong> – to jsou naše „syrová“ data, jsou to sloupce <code>campaignID</code>, <code>web</code> a <code>browser</code>.</li>
 <li><strong>metrika</strong> – vypočtené hodnoty, sloupec <code>impressions</code>.</li>
 </ul>
-<h2 id="Další_agregátory">Další agregátory</h2><p>Druid má podporu pro několik dalších <a href="http://druid.io/docs/0.7.1.1/Aggregations.html" target="_blank" rel="external">agregátorů</a>. Mohli bychom například přidat informaci o ceně za impresi; tabulka před agregací by vypadala takto:</p>
+<h2 id="další-agregátory">Další agregátory</h2>
+<p>Druid má podporu pro několik dalších <a href="http://druid.io/docs/0.7.1.1/Aggregations.html" target="_blank" rel="external">agregátorů</a>. Mohli bychom například přidat informaci o ceně za impresi; tabulka před agregací by vypadala takto:</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
-<th>price</th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+<th align="left">price</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-17T20:40:00Z</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>0.17</td>
+<tr class="odd">
+<td align="left">2015-03-17T20:40:00Z</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">0.17</td>
 </tr>
-<tr>
-<td>2015-03-17T20:40:02Z</td>
-<td>1344</td>
-<td>idnes.cz</td>
-<td>Chrome</td>
-<td>0.19</td>
+<tr class="even">
+<td align="left">2015-03-17T20:40:02Z</td>
+<td align="left">1344</td>
+<td align="left">idnes.cz</td>
+<td align="left">Chrome</td>
+<td align="left">0.19</td>
 </tr>
-<tr>
-<td>2015-03-17T20:40:27Z</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>0.43</td>
+<tr class="odd">
+<td align="left">2015-03-17T20:40:27Z</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">0.43</td>
 </tr>
 </tbody>
 </table>
 <p>Podle toho, co dosud víme, by se žádné řádky nespojily v jeden, protože všechny řádky se liší přinejmenším v ceně. To je ale docela nešikovné. Proto můžeme přidat <code>doubleSum</code> agregátor, který zařídí, aby se během agregace hodnoty ve sloupcích sečetly:</p>
 <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    "<span class="attribute">type</span>": <span class="value"><span class="string">"doubleSum"</span></span>,</span><br><span class="line">    "<span class="attribute">name</span>": <span class="value"><span class="string">"price"</span></span>,</span><br><span class="line">    "<span class="attribute">fieldName</span>": <span class="value"><span class="string">"price"</span></span><br><span class="line"></span>&#125;</span><br></pre></td></tr></table></figure>
-<p>Vlastnost <code>fieldName</code> říká, z kterého sloupečku má hodnoty číst a vlastnost <code>name</code> do jakého sloupečku má Druid agregovaná data ukládat. Protože máme oba názvy stejné, budou se data ve sloupečku price přepisovat. Nyní už může dojít k agregaci. Druid ví, že má porovnávat pouze hodnoty ve sloupcích <code>campaignId</code>, <code>web</code> a <code>browser</code>, zatímco sloupec <code>price</code> má vždy jen sečíst. Proto spojí první a třetí řádek do jednoho: </p>
+<p>Vlastnost <code>fieldName</code> říká, z kterého sloupečku má hodnoty číst a vlastnost <code>name</code> do jakého sloupečku má Druid agregovaná data ukládat. Protože máme oba názvy stejné, budou se data ve sloupečku price přepisovat. Nyní už může dojít k agregaci. Druid ví, že má porovnávat pouze hodnoty ve sloupcích <code>campaignId</code>, <code>web</code> a <code>browser</code>, zatímco sloupec <code>price</code> má vždy jen sečíst. Proto spojí první a třetí řádek do jednoho:</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
-<th>impressions</th>
-<th>price</th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+<th align="left">impressions</th>
+<th align="left">price</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-17T20:00:00</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>2</td>
-<td>0.6</td>
+<tr class="odd">
+<td align="left">2015-03-17T20:00:00</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">2</td>
+<td align="left">0.6</td>
 </tr>
-<tr>
-<td>2015-03-17T20:00:00</td>
-<td>1344</td>
-<td>idnes.cz</td>
-<td>Chrome</td>
-<td>1</td>
-<td>0.19</td>
+<tr class="even">
+<td align="left">2015-03-17T20:00:00</td>
+<td align="left">1344</td>
+<td align="left">idnes.cz</td>
+<td align="left">Chrome</td>
+<td align="left">1</td>
+<td align="left">0.19</td>
 </tr>
 </tbody>
 </table>
 <p>Nyní už ve sloupci <code>price</code> nemáme cenu jedné imprese, ale součet cen všech impresí v daném časovém úseku, pod danou kampaní, na daném webu a s daným prohlížečem. Z takové agregované tabulky už bychom samozřejmě nikdy nezjistili, jaká byla cena za jednu impresi.</p>
-<h2 id="Unikátní_uživatelé">Unikátní uživatelé</h2><p>Co když do zprávy přidáme i informaci o tom, kterému uživateli se banner zobrazil? Data před agregací:</p>
+<h2 id="unikátní-uživatelé">Unikátní uživatelé</h2>
+<p>Co když do zprávy přidáme i informaci o tom, kterému uživateli se banner zobrazil? Data před agregací:</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
-<th>userId  </th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+<th align="left">userId</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-17T20:40:00Z</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>40BBF8           </td>
+<tr class="odd">
+<td align="left">2015-03-17T20:40:00Z</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">40BBF8</td>
 </tr>
-<tr>
-<td>2015-03-17T20:40:27Z</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>9896AA           </td>
+<tr class="even">
+<td align="left">2015-03-17T20:40:27Z</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">9896AA</td>
 </tr>
 </tbody>
 </table>
-<p>Události nastaly ve stejnou hodinu, ale liší se v hodnotě <code>userId</code>. Druid by proto tyto dvě zprávy uložil do dvou řádků. To je ale dost prekérní situace, protože nyní agregace proběhne jen tehdy, týkají-li se dva řádky stejného uživatele, což nemusí nastat moc často. </p>
+<p>Události nastaly ve stejnou hodinu, ale liší se v hodnotě <code>userId</code>. Druid by proto tyto dvě zprávy uložil do dvou řádků. To je ale dost prekérní situace, protože nyní agregace proběhne jen tehdy, týkají-li se dva řádky stejného uživatele, což nemusí nastat moc často.</p>
 <p>V tuto chvíli se musíme zamyslet nad tím, na co data ve skutečnosti potřebujeme. Jde-li nám jen o statistické dotazy typu „kolik unikátních uživatelů vidělo reklamu XYZ na webu ZXY“, můžeme si pomoci tím, že použijeme pravděpodobností algoritmy. Ty nám z dostupných dat nespočítají přesný počet unikátních uživatelů, ale odhadnou počet unikátních uživatelů s nějakou chybou (typicky pod dvě procenta). To je většinou přijatelné. Výhodou pravděpodobnostních algoritmů pak je, že mají nižší paměťové nároky a jsou rychlejší.</p>
 <p>Druid zná <a href="/hyperloglog">HyperLogLog</a>, což je v současné době nejlepší algoritmus pro odhadování unikátních hodnot v multimnožině. Přidáme do našeho specFilu nový agregátor <code>hyperUnique</code>:</p>
 <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    "<span class="attribute">type</span>" : <span class="value"><span class="string">"hyperUnique"</span></span>, </span><br><span class="line">    "<span class="attribute">name</span>" : <span class="value"><span class="string">"uniqueUsers"</span></span>, </span><br><span class="line">    "<span class="attribute">fieldName</span>" : <span class="value"><span class="string">"userId"</span> </span><br><span class="line"></span>&#125;</span><br></pre></td></tr></table></figure>
-<p>Abyste plně pochopili, co se teď bude dít, je nutné vědět jak funguje <a href="/hyperloglog">HyperLogLog</a> a hlavně jak funguje <a href="/sjednoceni-hyperloglogu">sjednocení hyperloglogu</a>. Stručně řečeno, HyperLogLog je algoritmus, který převádí hodnoty ve sloupci na vektory, například na [0, 0, 3, 0], z nichž lze později odhadnout počet unikátních hodnot v daném sloupci. </p>
+<p>Abyste plně pochopili, co se teď bude dít, je nutné vědět jak funguje <a href="/hyperloglog">HyperLogLog</a> a hlavně jak funguje <a href="/sjednoceni-hyperloglogu">sjednocení hyperloglogu</a>. Stručně řečeno, HyperLogLog je algoritmus, který převádí hodnoty ve sloupci na vektory, například na [0, 0, 3, 0], z nichž lze později odhadnout počet unikátních hodnot v daném sloupci.</p>
 <p>Velkou výhodou je, že máme-li dva vektory [0, 3, 0, 0] a [0, 2, 0, 0], které reprezentují dvě různé hodnoty <code>A</code> a <code>B</code>, můžeme reprezentovat množinu <code>{A, B}</code> tak, že vektory „sjednotíme“ (vypočítáme maximum po složkách):</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[0, 3, 0, 0]&#10;[0, 2, 0, 0]&#10;------------&#10;[0, 3, 0, 0]</span><br></pre></td></tr></table></figure>
 <p>Druid při agregaci vypočte HLL vektor a ten uloží do tabulky do sloupce <code>uniqueUsers</code> a <strong>hodnotu <code>userId</code> zahodí</strong>. Před finální agregací bude tabulka vypadat takto:</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
-<th>impressions</th>
-<th>uniqueUsers</th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+<th align="left">impressions</th>
+<th align="left">uniqueUsers</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-17T20:00:00</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>1</td>
-<td>[0, 3, 0, 0]</td>
+<tr class="odd">
+<td align="left">2015-03-17T20:00:00</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">1</td>
+<td align="left">[0, 3, 0, 0]</td>
 </tr>
-<tr>
-<td>2015-03-17T20:00:00</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>1</td>
-<td>[0, 2, 0, 0]</td>
+<tr class="even">
+<td align="left">2015-03-17T20:00:00</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">1</td>
+<td align="left">[0, 2, 0, 0]</td>
 </tr>
 </tbody>
 </table>
 <p>Protože HLL vektory umíme <a href="/sjednoceni-hyperloglogu">sjednotit</a>, můžeme tyto dva řádky spojit do jednoho. Výsledná agregovaná tabulka by vypadala takto:</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
-<th>impressions</th>
-<th>uniqueUsers</th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+<th align="left">impressions</th>
+<th align="left">uniqueUsers</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-17T20:00:00</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>2</td>
-<td>[0, 3, 0, 0]</td>
+<tr class="odd">
+<td align="left">2015-03-17T20:00:00</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">2</td>
+<td align="left">[0, 3, 0, 0]</td>
 </tr>
 </tbody>
 </table>
 <p>Z těchto dat umíme vyčíst přesný počet impresí pro danou kampaň, daný web a daný prohlížeč za daný čas. Z daných dat také umíme získat přibližný počet unikátních uživatelů, kterým se tento banner zobrazil. Důležité je, že i když poroste počet zobrazení daného banneru, stále nám pro uložení stačí jeden řádek. Pokud by kampaň vyprodukovala 15 874 impresí u 6 098 unikátních uživatelů, mohl by řádek vypadat nějak takto:</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
-<th>impressions</th>
-<th>uniqueUsers</th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+<th align="left">impressions</th>
+<th align="left">uniqueUsers</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-17T20:00:00</td>
-<td>336</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>15 874</td>
-<td>[15, 17, 10, 14]</td>
+<tr class="odd">
+<td align="left">2015-03-17T20:00:00</td>
+<td align="left">336</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">15 874</td>
+<td align="left">[15, 17, 10, 14]</td>
 </tr>
 </tbody>
 </table>
-<p>Počet impresí máme v tabulce přesně, počet unikátů by nám Druid odhadl z vektoru <code>[15, 17, 10, 14]</code>. Přitom nikde nemáme uložená IDéčka uživatelů. Nepotřebujeme je. </p>
-<p>Sloupec <code>uniqueUsers</code> představuje další metriku v naší tabulce. </p>
-<h2 id="Časová_granularita">Časová granularita</h2><p>Dosud jsme stále pracovali s tím, že se data agregují v rámci jedné hodiny. Jako většina věcí, i toto je v Druidu nastavitelné:</p>
-<pre><code><span class="string">"granularitySpec"</span> : {
-    <span class="string">"type"</span> : <span class="string">"uniform"</span>,
-    <span class="string">"segmentGranularity"</span> : <span class="string">"day"</span>,
-    <span class="string">"queryGranularity"</span> : <span class="string">"hour"</span>
-}
-</code></pre><p>Teď se budeme zabývat vlastností <code>queryGranularity</code>, která nám udává, za jaký časový úsek se budou agregovat zprávy. Nastavíme-li hodinovou queryGranularity, pak se nám zprávy budou agregovat vždy v rámci jedné hodiny (14:00 až 14:59:59…), tzn., že za jeden den budeme mít pro každou kombinaci dat 24 různých řádků pro 24 hodin. Jeden příklad lepší než tisíc slov (A pro jednoduchost vynecháme sloupec userId, protože Hyperloglogu stejně nikdo nerozumíte): </p>
+<p>Počet impresí máme v tabulce přesně, počet unikátů by nám Druid odhadl z vektoru <code>[15, 17, 10, 14]</code>. Přitom nikde nemáme uložená IDéčka uživatelů. Nepotřebujeme je.</p>
+<p>Sloupec <code>uniqueUsers</code> představuje další metriku v naší tabulce.</p>
+<h2 id="časová-granularita">Časová granularita</h2>
+<p>Dosud jsme stále pracovali s tím, že se data agregují v rámci jedné hodiny. Jako většina věcí, i toto je v Druidu nastavitelné:</p>
+<pre><code>&quot;granularitySpec&quot; : {
+    &quot;type&quot; : &quot;uniform&quot;,
+    &quot;segmentGranularity&quot; : &quot;day&quot;,
+    &quot;queryGranularity&quot; : &quot;hour&quot;
+}</code></pre>
+<p>Teď se budeme zabývat vlastností <code>queryGranularity</code>, která nám udává, za jaký časový úsek se budou agregovat zprávy. Nastavíme-li hodinovou queryGranularity, pak se nám zprávy budou agregovat vždy v rámci jedné hodiny (14:00 až 14:59:59…), tzn., že za jeden den budeme mít pro každou kombinaci dat 24 různých řádků pro 24 hodin. Jeden příklad lepší než tisíc slov (A pro jednoduchost vynecháme sloupec userId, protože Hyperloglogu stejně nikdo nerozumíte):</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-20T18:50:00Z</td>
-<td>36708</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="odd">
+<td align="left">2015-03-20T18:50:00Z</td>
+<td align="left">36708</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
-<tr>
-<td>2015-03-20T18:51:09Z</td>
-<td>36708</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="even">
+<td align="left">2015-03-20T18:51:09Z</td>
+<td align="left">36708</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
-<tr>
-<td>2015-03-20T18:51:12Z</td>
-<td>36708</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="odd">
+<td align="left">2015-03-20T18:51:12Z</td>
+<td align="left">36708</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
-<tr>
-<td>2015-03-20T18:51:35Z</td>
-<td>36708</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="even">
+<td align="left">2015-03-20T18:51:35Z</td>
+<td align="left">36708</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
-<tr>
-<td>2015-03-20T18:51:35Z</td>
-<td>13650</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="odd">
+<td align="left">2015-03-20T18:51:35Z</td>
+<td align="left">13650</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
-<tr>
-<td>2015-03-20T18:51:35Z</td>
-<td>13650</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="even">
+<td align="left">2015-03-20T18:51:35Z</td>
+<td align="left">13650</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
-<tr>
-<td>…</td>
-<td>…</td>
-<td>…</td>
-<td>…</td>
+<tr class="odd">
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
 </tr>
-<tr>
-<td>2015-03-20T19:14:27Z</td>
-<td>36708</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="even">
+<td align="left">2015-03-20T19:14:27Z</td>
+<td align="left">36708</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
-<tr>
-<td>2015-03-20T19:15:38Z</td>
-<td>36708</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="odd">
+<td align="left">2015-03-20T19:15:38Z</td>
+<td align="left">36708</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
-<tr>
-<td>2015-03-20T19:16:01Z</td>
-<td>36708</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
+<tr class="even">
+<td align="left">2015-03-20T19:16:01Z</td>
+<td align="left">36708</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
 </tr>
 </tbody>
 </table>
-<p>tuto tabulku by Druid agregoval na tuto výslednou tabulku: </p>
+<p>tuto tabulku by Druid agregoval na tuto výslednou tabulku:</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
-<th>Impressions</th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+<th align="left">Impressions</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-20T18:00:00Z</td>
-<td>36708</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>4</td>
+<tr class="odd">
+<td align="left">2015-03-20T18:00:00Z</td>
+<td align="left">36708</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">4</td>
 </tr>
-<tr>
-<td>2015-03-20T18:00:00Z</td>
-<td>13650</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>2</td>
+<tr class="even">
+<td align="left">2015-03-20T18:00:00Z</td>
+<td align="left">13650</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">2</td>
 </tr>
-<tr>
-<td>…</td>
-<td>…</td>
-<td>…</td>
-<td>…</td>
-<td>…</td>
+<tr class="odd">
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
 </tr>
-<tr>
-<td>2015-03-20T19:00:00Z</td>
-<td>36708</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>2</td>
+<tr class="even">
+<td align="left">2015-03-20T19:00:00Z</td>
+<td align="left">36708</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">2</td>
 </tr>
 </tbody>
 </table>
 <p>Pokud bychom nastavili <code>queryGranularity</code> na <code>day</code>, vypadala by výsledná agregovaná tabulka takto:</p>
 <table>
 <thead>
-<tr>
-<th>timestamp</th>
-<th>campaignID</th>
-<th>web</th>
-<th>browser</th>
-<th>Impressions</th>
+<tr class="header">
+<th align="left">timestamp</th>
+<th align="left">campaignID</th>
+<th align="left">web</th>
+<th align="left">browser</th>
+<th align="left">Impressions</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>2015-03-20T00:00:00Z</td>
-<td>36708</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>6</td>
+<tr class="odd">
+<td align="left">2015-03-20T00:00:00Z</td>
+<td align="left">36708</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">6</td>
 </tr>
-<tr>
-<td>2015-03-20T00:00:00Z</td>
-<td>13650</td>
-<td>csfd.cz</td>
-<td>Chrome</td>
-<td>2</td>
+<tr class="even">
+<td align="left">2015-03-20T00:00:00Z</td>
+<td align="left">13650</td>
+<td align="left">csfd.cz</td>
+<td align="left">Chrome</td>
+<td align="left">2</td>
 </tr>
-<tr>
-<td>…</td>
-<td>…</td>
-<td>…</td>
-<td>…</td>
-<td>…</td>
+<tr class="odd">
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
+<td align="left">…</td>
 </tr>
 </tbody>
 </table>
-<p>Hodnota queryGranularity nám určuje největší možnou granularitu. Nastavíme-li queryGranularity na hodinu, nebudeme už z Druidu schopni vytáhnout data po minutách. Ale můžeme vytáhnout data po dnech, protože to je menší granularita. </p>
-<p>Vlastnost segmentGranularity udává velikost jednoho <a href="/druid-io-architektura">segmentu</a>, což jsme řešili v předchozím článku. V jednom denním segmentu protože můžeme mít například 24 hodinových bloků dat. </p>
-<h2 id="Co_Druid_ukládá">Co Druid ukládá</h2><p>Důležité je, že <strong>Druid ukládá pouze agregovaná data</strong>. Původní zprávy, ze kterých byla data vybudovaná, neukládá a není možné se k nim přes Druida nějak dostat. Pokud jednou uložíme data s hodinovou granularitou, nedokážeme z Druidu žádným způsobem vytáhnout počet impresí za čas 13:15 až 13:30, budeme moci vytáhnout pouze data za 13:00 až 14:00. Nemůžeme ani říci Druidu, aby  přepočítal data z minulého týdne, protože jsme tam našli chybu – Druid surová data nemá a proto nemůže vše znova přepočítat. </p>
+<p>Hodnota queryGranularity nám určuje největší možnou granularitu. Nastavíme-li queryGranularity na hodinu, nebudeme už z Druidu schopni vytáhnout data po minutách. Ale můžeme vytáhnout data po dnech, protože to je menší granularita.</p>
+<p>Vlastnost segmentGranularity udává velikost jednoho <a href="/druid-io-architektura">segmentu</a>, což jsme řešili v předchozím článku. V jednom denním segmentu protože můžeme mít například 24 hodinových bloků dat.</p>
+<h2 id="co-druid-ukládá">Co Druid ukládá</h2>
+<p>Důležité je, že <strong>Druid ukládá pouze agregovaná data</strong>. Původní zprávy, ze kterých byla data vybudovaná, neukládá a není možné se k nim přes Druida nějak dostat. Pokud jednou uložíme data s hodinovou granularitou, nedokážeme z Druidu žádným způsobem vytáhnout počet impresí za čas 13:15 až 13:30, budeme moci vytáhnout pouze data za 13:00 až 14:00. Nemůžeme ani říci Druidu, aby přepočítal data z minulého týdne, protože jsme tam našli chybu – Druid surová data nemá a proto nemůže vše znova přepočítat.</p>
 <p>Proto se často původní surová data nezahazují, ale ukládají se někam jinam, například do <a href="http://en.wikipedia.org/wiki/Apache_Hadoop#HDFS" target="_blank" rel="external">HDFS</a> nebo do <a href="http://aws.amazon.com/s3/" target="_blank" rel="external">Amazon S3</a>. Tím máme zaručeno, že když se něco v Druidu pokazí, že můžeme vzít data z HDFS a poslat je znovu do Druidu. Třeba když zjistíme, že by se nám vlastně hodila minutová granularita. Na přesun dat z Kafky do HDFS používáme <a href="https://github.com/linkedin/camus" target="_blank" rel="external">Camus</a>.</p>
-<div class="relatedBox"><div class="relatedArticlesBox"><h2 id="relatedArticles">Související články:</h2><ol><li><a href="/lambda-architecture/">Jak zpracováváme velké množství dat: Lambda Architecture</a></li><li><a href="/kafka/">Kafka messaging system</a></li><li><a href="/kafka-consumer/">Jak funguje Kafka consumer</a></li><li><a href="/kafka-replikace/">Jak funguje replikace v Kafce</a></li><li><a href="/samza/">Samza: distributed stream processing framework</a></li><li><a href="/samza-windowing/">Windowing v Samze</a></li><li><a href="/samza-local-state/">Uložení lokálního stavu v Samze</a></li><li><a href="/druid-io/">Druid.io: distribuovaná immutable databáze pro analytické výpočty</a></li><li><a href="/druid-io-architektura/">Architektura Druid.io</a></li></ol></div></div><div class="articleTags"><strong><a href="/tags/bigdata">#bigdata</a></strong>, <strong><a href="/tags/druid">#druid</a></strong></div></div></article><div style="text-align: right"><div class="fb-like" data-layout="button_count" data-action="like" data-show-faces="true" data-share="true" style="margin-top: 10px; height: 30px"></div></div><div class="comments"><div id="disqus_thread"><noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div></div><footer class="post__foot u-cf"><ul class="post__tag u-fl"><li class="post__tag__item"><a href="/tags/bigdata/" class="post__tag__link">bigdata</a></li><li class="post__tag__item"><a href="/tags/druid/" class="post__tag__link">druid</a></li></ul><a href="/druid-io-ingest/#disqus_thread" class="post__foot-link u-fr">Komentáře</a></footer></main><footer class="foot"><div class="foot-copy u-fl"><a href="/">Programio</a> píše <a href="http://www.havrlant.cz/">Lukáš Havrlant</a></div><menu class="page-menu u-fr"><li class="page-menu__item"><a title="Previous" href="/docker-vagrant/" class="page-menu__link icon-arrow-left"></a></li><li class="page-menu__item"><a title="Next" href="/druid-io-architektura/" class="page-menu__link icon-arrow-right"></a></li></menu></footer><script>(function(h,g,l,k,j,i){j=h.createElement(g),i=h.getElementsByTagName(g)[0],
+<p>A jestli vás článek opravdu zaujal, <a href="http://www.ibillboard.com/cs/spolecnost/spolecnost/kariera/202-vyvojar-nodejs-javascript">tak pojďte pracovat k nám do firmy!</a> Podobných problémů řešíme mraky.</p><div class="relatedBox"><div class="relatedArticlesBox"><h2 id="relatedArticles">Související články:</h2><ol><li><a href="/lambda-architecture/">Jak zpracováváme velké množství dat: Lambda Architecture</a></li><li><a href="/kafka/">Kafka messaging system</a></li><li><a href="/kafka-consumer/">Jak funguje Kafka consumer</a></li><li><a href="/kafka-replikace/">Jak funguje replikace v Kafce</a></li><li><a href="/samza/">Samza: distributed stream processing framework</a></li><li><a href="/samza-windowing/">Windowing v Samze</a></li><li><a href="/samza-local-state/">Uložení lokálního stavu v Samze</a></li><li><a href="/druid-io/">Druid.io: distribuovaná immutable databáze pro analytické výpočty</a></li><li><a href="/druid-io-architektura/">Architektura Druid.io</a></li></ol></div></div><div class="articleTags"><strong><a href="/tags/bigdata">#bigdata</a></strong>, <strong><a href="/tags/druid">#druid</a></strong></div></div></article><div style="text-align: right"><div class="fb-like" data-layout="button_count" data-action="like" data-show-faces="true" data-share="true" style="margin-top: 10px; height: 30px"></div></div><div class="comments"><div id="disqus_thread"><noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div></div><footer class="post__foot u-cf"><ul class="post__tag u-fl"><li class="post__tag__item"><a href="/tags/bigdata/" class="post__tag__link">bigdata</a></li><li class="post__tag__item"><a href="/tags/druid/" class="post__tag__link">druid</a></li></ul><a href="/druid-io-ingest/#disqus_thread" class="post__foot-link u-fr">Komentáře</a></footer></main><footer class="foot"><div class="foot-copy u-fl"><a href="/">Programio</a> píše <a href="http://www.havrlant.cz/">Lukáš Havrlant</a></div><menu class="page-menu u-fr"><li class="page-menu__item"><a title="Previous" href="/docker-vagrant/" class="page-menu__link icon-arrow-left"></a></li><li class="page-menu__item"><a title="Next" href="/druid-io-architektura/" class="page-menu__link icon-arrow-right"></a></li></menu></footer><script>(function(h,g,l,k,j,i){j=h.createElement(g),i=h.getElementsByTagName(g)[0],
 j.src="//"+l+".disqus.com/"+k+".js",i.parentNode.insertBefore(j,i)})
 (document,"script","programio","embed");
 </script><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=
