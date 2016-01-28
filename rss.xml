@@ -7,14 +7,14 @@
     <link>http://programio.havrlant.cz/</link>
     <atom:link href="/rss.xml" rel="self" type="application/rss+xml"/>
     <description></description>
-    <pubDate>Thu, 28 Jan 2016 18:31:03 GMT</pubDate>
+    <pubDate>Thu, 28 Jan 2016 18:45:16 GMT</pubDate>
     <generator>http://hexo.io/</generator>
     
     <item>
       <title><![CDATA[Antipatterny Event sourcingu]]></title>
       <link>http://programio.havrlant.cz/event-sourcing-antipatterny/</link>
       <guid>http://programio.havrlant.cz/event-sourcing-antipatterny/</guid>
-      <pubDate>Sun, 13 Dec 2015 07:07:19 GMT</pubDate>
+      <pubDate>Thu, 28 Jan 2016 18:45:19 GMT</pubDate>
       <description>
       <![CDATA[<p>V <a href="/architektura-event-sourcing">minulém článku jsem představil event sourcing</a> a popsal, jak ho u nás v práci používáme. Dnes]]>
       </description>
